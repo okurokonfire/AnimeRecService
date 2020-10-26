@@ -1,2 +1,10 @@
 *.class
 *.log
+*.jar
+target
+project
+!project/*.sbt
+!project/build.properties
+null
+.metals
+.vscode
