@@ -3,7 +3,7 @@ package anilist.recsystem
 import  org.scalatest.flatspec.AnyFlatSpec
 import  org.scalatest.matchers.should._
 
-class UpdateMediaTest extends AnyFlatSpec with Matchers {
+class CollectJsonTest extends AnyFlatSpec with Matchers {
     "collect info" should "not fail" in {
         anilist.recsystem.CollectJsonInfo.collectMediaInfo(1)
     }
