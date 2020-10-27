@@ -1,3 +1,5 @@
+DROP TABLE public.tstafflist;
+
 DROP TABLE public.tstudiolist;
 
 DROP TABLE public.ttaglist;
@@ -29,6 +31,21 @@ DROP TABLE public.tsource;
 DROP TABLE public.ttagcategory;
 
 DROP TABLE public.tstudio;
+
+DROP TABLE public.tstaff;
+
+-- public.tstaff definition
+
+CREATE TABLE public.tstaff (
+	staffid serial NOT NULL,
+	aniliststaffid int4 NOT NULL,
+	firstname varchar(255) NULL,
+	lastname varchar(255) NULL,
+	fullname varchar(255) NULL,
+	nativename varchar(255) NULL,
+	CONSTRAINT tstaff_aniliststaffid_key UNIQUE (anilistuserid),
+	CONSTRAINT tstaff_pkey PRIMARY KEY (staffid)
+);
 
 -- public.ttagcategory definition
 
@@ -209,6 +226,7 @@ ALTER TABLE public.ttaglist ADD CONSTRAINT fk_ttaglist_ttag FOREIGN KEY (tagid) 
 CREATE TABLE public.tstudiolist (
 	animeid int4 NOT NULL,
 	studioid int4 NOT NULL,
+	ismain bool NOT NULL,
 	CONSTRAINT tstudiolist_pkey PRIMARY KEY (animeid, studioid)
 );
 
@@ -216,3 +234,17 @@ CREATE TABLE public.tstudiolist (
 
 ALTER TABLE public.ttaglist ADD CONSTRAINT fk_tstudiolist_tanime FOREIGN KEY (animeid) REFERENCES tanime(animeid);
 ALTER TABLE public.ttaglist ADD CONSTRAINT fk_tstudiolist_tstudio FOREIGN KEY (studioid) REFERENCES tstudio(studioid);
+
+-- public.tstafflist definition
+
+CREATE TABLE public.tstafflist (
+	animeid int4 NOT NULL,
+	staffid int4 NOT NULL,
+	role varchar(255) NULL,
+	CONSTRAINT tstafflist_pkey PRIMARY KEY (animeid, staffid, role)
+);
+
+-- public.tstafflist foreign keys
+
+ALTER TABLE public.ttaglist ADD CONSTRAINT fk_tstafflist_tanime FOREIGN KEY (animeid) REFERENCES tanime(animeid);
+ALTER TABLE public.ttaglist ADD CONSTRAINT fk_tstafflist_tstaff FOREIGN KEY (staffid) REFERENCES tstudio(staffid);
