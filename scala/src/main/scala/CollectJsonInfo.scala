@@ -14,7 +14,7 @@ import org.apache.http.util.EntityUtils
 import java.nio.charset.StandardCharsets
 //import java.sql.{Connection, DriverManager, ResultSet}
 
-object UpdateMediaInfo {
+object CollectJsonInfo {
     def collectInfo(params: String) = {
         val url = "https://graphql.anilist.co"
         val post = new HttpPost(url)
