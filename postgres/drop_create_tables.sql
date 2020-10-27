@@ -34,6 +34,8 @@ DROP TABLE public.tstudio;
 
 DROP TABLE public.tstaff;
 
+DROP TABLE public.tmediatype;
+
 -- public.tstaff definition
 
 CREATE TABLE public.tstaff (
@@ -122,6 +124,14 @@ CREATE TABLE public.tstudio (
 	CONSTRAINT tstudio_pkey PRIMARY KEY (formatid)
 );
 
+-- public.tmediatype definition
+
+CREATE TABLE public.tmediatype (
+	mediatypeid serial NOT NULL,
+	name varchar(50) NULL,
+	CONSTRAINT tmediatype_pkey PRIMARY KEY (mediatypeid)
+);
+
 -- public.tanime definition
 
 CREATE TABLE public.tanime (
@@ -137,6 +147,7 @@ CREATE TABLE public.tanime (
 	formatid int4 NULL,
 	sourceid int4 NULL,
 	statusid int4 NULL,
+	mediatypeid int4 NOT NULL,
 	CONSTRAINT tanime_anilistanimeid_key UNIQUE (anilistanimeid),
 	CONSTRAINT tanime_pkey PRIMARY KEY (animeid)
 );
@@ -146,6 +157,7 @@ CREATE TABLE public.tanime (
 ALTER TABLE public.tanime ADD CONSTRAINT fk_tanime_tformat FOREIGN KEY (formatid) REFERENCES tformat(formatid);
 ALTER TABLE public.tanime ADD CONSTRAINT fk_tanime_tsource FOREIGN KEY (sourceid) REFERENCES tsource(sourceid);
 ALTER TABLE public.tanime ADD CONSTRAINT fk_tanime_tstatus FOREIGN KEY (statusid) REFERENCES tstatus(statusid);
+ALTER TABLE public.tanime ADD CONSTRAINT fk_tanime_tmediatype FOREIGN KEY (mediatypeid) REFERENCES tmediatype(mediatypeid);
 
 -- public.tanimealtname definition
 
@@ -172,6 +184,7 @@ CREATE TABLE public.tanimelist (
 	score int4 NULL,
 	rewatched int4 NULL,
 	statusid int4 NULL,
+	mediatypeid int4 NOT NULL,
 	CONSTRAINT tanimelist_pkey PRIMARY KEY (userid, animeid)
 );
 
@@ -179,6 +192,7 @@ CREATE TABLE public.tanimelist (
 ALTER TABLE public.tanimelist ADD CONSTRAINT fk_tanimelist_twatchstatus FOREIGN KEY (statusid) REFERENCES twatchstatus(watchstatusid);
 ALTER TABLE public.tanimelist ADD CONSTRAINT fk_tanimelist_tanime FOREIGN KEY (animeid) REFERENCES tanime(animeid);
 ALTER TABLE public.tanimelist ADD CONSTRAINT fk_tanimelist_tuser FOREIGN KEY (userid) REFERENCES tuser(userid);
+ALTER TABLE public.tanimelist ADD CONSTRAINT fk_tanimelist_tmediatype FOREIGN KEY (mediatypeid) REFERENCES tmediatype(mediatypeid);
 
 -- public.tgenrelist definition
 
