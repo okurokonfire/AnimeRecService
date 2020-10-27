@@ -1,8 +1,32 @@
+DROP TABLE public.ttaglist;
+
+DROP TABLE public.ttag;
+
+DROP TABLE public.tgenrelist;
+
+DROP TABLE public.tanimelist;
+
+DROP TABLE public.tanimealtname;
+
+DROP TABLE public.tanime;
+
+DROP TABLE public.tformat;
+
+DROP TABLE public.tuser;
+
+DROP TABLE public.tgenre;
+
+DROP TABLE public.tnametype;
+
+DROP TABLE public.twatchstatus;
+
+DROP TABLE public.tstatus;
+
+DROP TABLE public.tsource;
+
+DROP TABLE public.ttagcategory;
+
 -- public.ttagcategory definition
-
--- Drop table
-
--- DROP TABLE public.ttagcategory;
 
 CREATE TABLE public.ttagcategory (
 	categoryid serial NOT NULL,
@@ -12,10 +36,6 @@ CREATE TABLE public.ttagcategory (
 
 -- public.tsource definition
 
--- Drop table
-
--- DROP TABLE public.tsource;
-
 CREATE TABLE public.tsource (
 	sourceid serial NOT NULL,
 	name varchar(50) NULL,
@@ -23,10 +43,6 @@ CREATE TABLE public.tsource (
 );
 
 -- public.tstatus definition
-
--- Drop table
-
--- DROP TABLE public.tstatus;
 
 CREATE TABLE public.tstatus (
 	statusid serial NOT NULL,
@@ -36,10 +52,6 @@ CREATE TABLE public.tstatus (
 
 -- public.twatchstatus definition
 
--- Drop table
-
--- DROP TABLE public.twatchstatus;
-
 CREATE TABLE public.twatchstatus (
 	watchstatusid serial NOT NULL,
 	name varchar(50) NULL,
@@ -47,10 +59,6 @@ CREATE TABLE public.twatchstatus (
 );
 
 -- public.tnametype definition
-
--- Drop table
-
--- DROP TABLE public.tnametype;
 
 CREATE TABLE public.tnametype (
 	nametypeid serial NOT NULL,
@@ -60,10 +68,6 @@ CREATE TABLE public.tnametype (
 
 -- public.tgenre definition
 
--- Drop table
-
--- DROP TABLE public.tgenre;
-
 CREATE TABLE public.tgenre (
 	genreid serial NOT NULL,
 	name varchar(255) NULL,
@@ -71,10 +75,6 @@ CREATE TABLE public.tgenre (
 );
 
 -- public.tuser definition
-
--- Drop table
-
--- DROP TABLE public.tuser;
 
 CREATE TABLE public.tuser (
 	userid serial NOT NULL,
@@ -85,24 +85,13 @@ CREATE TABLE public.tuser (
 
 -- public.tformat definition
 
--- Drop table
-
--- DROP TABLE public.tformat;
-
 CREATE TABLE public.tformat (
 	formatid serial NOT NULL,
 	name varchar(50) NULL,
 	CONSTRAINT tformat_pkey PRIMARY KEY (formatid)
 );
 
-
-
-
 -- public.tanime definition
-
--- Drop table
-
--- DROP TABLE public.tanime;
 
 CREATE TABLE public.tanime (
 	animeid serial NOT NULL,
@@ -118,7 +107,6 @@ CREATE TABLE public.tanime (
 	CONSTRAINT tanime_pkey PRIMARY KEY (animeid)
 );
 
-
 -- public.tanime foreign keys
 
 ALTER TABLE public.tanime ADD CONSTRAINT fk_tanime_tformat FOREIGN KEY (formatid) REFERENCES tformat(formatid);
@@ -126,10 +114,6 @@ ALTER TABLE public.tanime ADD CONSTRAINT fk_tanime_tsource FOREIGN KEY (sourceid
 ALTER TABLE public.tanime ADD CONSTRAINT fk_tanime_tstatus FOREIGN KEY (statusid) REFERENCES tstatus(statusid);
 
 -- public.tanimealtname definition
-
--- Drop table
-
--- DROP TABLE public.tanimealtname;
 
 CREATE TABLE public.tanimealtname (
 	animealtnameid serial NOT NULL,
@@ -139,17 +123,12 @@ CREATE TABLE public.tanimealtname (
 	CONSTRAINT tanimealtname_pkey PRIMARY KEY (animealtnameid)
 );
 
-
 -- public.tanimealtname foreign keys
 
 ALTER TABLE public.tanimealtname ADD CONSTRAINT fk_tanimealtname_tanime FOREIGN KEY (animeid) REFERENCES tanime(animeid);
 ALTER TABLE public.tanimealtname ADD CONSTRAINT fk_tanimealtname_tnametype FOREIGN KEY (nametypeid) REFERENCES tnametype(nametypeid);
 
 -- public.tanimelist definition
-
--- Drop table
-
--- DROP TABLE public.tanimelist;
 
 CREATE TABLE public.tanimelist (
 	userid int4 NOT NULL,
@@ -162,18 +141,12 @@ CREATE TABLE public.tanimelist (
 	CONSTRAINT tanimelist_pkey PRIMARY KEY (userid, animeid)
 );
 
-
 -- public.tanimelist foreign keys
 ALTER TABLE public.tanimelist ADD CONSTRAINT fk_tanimelist_twatchstatus FOREIGN KEY (statusid) REFERENCES twatchstatus(watchstatusid);
 ALTER TABLE public.tanimelist ADD CONSTRAINT fk_tanimelist_tanime FOREIGN KEY (animeid) REFERENCES tanime(animeid);
 ALTER TABLE public.tanimelist ADD CONSTRAINT fk_tanimelist_tuser FOREIGN KEY (userid) REFERENCES tuser(userid);
 
-
 -- public.tgenrelist definition
-
--- Drop table
-
--- DROP TABLE public.tgenrelist;
 
 CREATE TABLE public.tgenrelist (
 	animeid int4 NOT NULL,
@@ -181,18 +154,12 @@ CREATE TABLE public.tgenrelist (
 	CONSTRAINT tgenrelist_pkey PRIMARY KEY (animeid, genreid)
 );
 
-
 -- public.tgenrelist foreign keys
 
 ALTER TABLE public.tgenrelist ADD CONSTRAINT tgenrelist_tanime FOREIGN KEY (animeid) REFERENCES tanime(animeid);
 ALTER TABLE public.tgenrelist ADD CONSTRAINT tgenrelist_tgenre FOREIGN KEY (genreid) REFERENCES tgenre(genreid);
 
-
 -- public.ttag definition
-
--- Drop table
-
--- DROP TABLE public.ttag;
 
 CREATE TABLE public.ttag (
 	tagid serial NOT NULL,
@@ -203,25 +170,17 @@ CREATE TABLE public.ttag (
 	CONSTRAINT ttag_pkey PRIMARY KEY (tagid)
 );
 
-
 -- public.ttag foreign keys
 
 ALTER TABLE public.ttag ADD CONSTRAINT fk_ttag_ttagcategory FOREIGN KEY (categoryid) REFERENCES ttagcategory(categoryid);
 
-
-
 -- public.ttaglist definition
-
--- Drop table
-
--- DROP TABLE public.ttaglist;
 
 CREATE TABLE public.ttaglist (
 	animeid int4 NOT NULL,
 	tagid int4 NOT NULL,
 	CONSTRAINT ttaglist_pkey PRIMARY KEY (animeid, tagid)
 );
-
 
 -- public.ttaglist foreign keys
 
