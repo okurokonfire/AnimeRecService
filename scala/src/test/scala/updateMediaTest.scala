@@ -35,6 +35,6 @@ class UpdateMediaTest extends AnyFlatSpec with Matchers {
     "user info" should "not be error line" in {
         val res = anilist.recsystem.UpdateMediaInfo.collectUserInfoByName("gazavat","MANGA") 
         //println(res)
-        res should startWith ("""{"data":{"MediaListCollection":{"lists":[{"entries":[{"userId":1""")
+        res should startWith ("""{"data":{"MediaListCollection":{"lists":[{"entries":[{"userId":162707""")
     }  
 }
