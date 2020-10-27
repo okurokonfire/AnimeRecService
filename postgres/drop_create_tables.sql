@@ -137,7 +137,7 @@ CREATE TABLE public.tanimelist (
 	dateend date NULL,
 	score int4 NULL,
 	rewatched int4 NULL,
-	statusid int4 NULL
+	statusid int4 NULL,
 	CONSTRAINT tanimelist_pkey PRIMARY KEY (userid, animeid)
 );
 
