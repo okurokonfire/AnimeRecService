@@ -1,0 +1,73 @@
+all
+
+{  MediaListCollection(userName: "gazavat", type: ANIME) 
+  {  lists 
+    {  entries 
+      { userId  
+        id  
+        mediaId 
+        startedAt 
+        {  
+          year  
+          month  
+          day  
+        }  
+        completedAt 
+        {  
+          year  
+          month  
+          day  
+        }  
+        score  
+        progress  
+        repeat  
+        media 
+        {  
+          id  
+          type  
+          title 
+          {  
+            romaji  
+            english  
+            native  
+          }  
+          synonyms  
+          startDate 
+          {  
+            year  
+            month  
+            day  
+          }  
+          endDate 
+          {  
+            year  
+            month  
+            day  
+          }  
+          episodes  
+          format  
+          tags
+          {  
+            id  
+            name  
+            category  
+          }  
+          genres  
+          source  
+          status  
+        }  
+      }  
+    }  
+  }  
+}
+
+media
+
+
+
+
+user
+
+
+
+
