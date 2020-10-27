@@ -1,3 +1,5 @@
+DROP TABLE public.tstudiolist;
+
 DROP TABLE public.ttaglist;
 
 DROP TABLE public.ttag;
@@ -25,6 +27,8 @@ DROP TABLE public.tstatus;
 DROP TABLE public.tsource;
 
 DROP TABLE public.ttagcategory;
+
+DROP TABLE public.tstudio;
 
 -- public.ttagcategory definition
 
@@ -91,6 +95,16 @@ CREATE TABLE public.tformat (
 	CONSTRAINT tformat_pkey PRIMARY KEY (formatid)
 );
 
+-- public.tstudio definition
+
+CREATE TABLE public.tstudio (
+	studioid serial NOT NULL,
+	aniliststudioid int4 NOT NULL
+	name varchar(50) NULL,
+	CONSTRAINT tstudio_anilistsudioid_key UNIQUE (aniliststudioid),
+	CONSTRAINT tstudio_pkey PRIMARY KEY (formatid)
+);
+
 -- public.tanime definition
 
 CREATE TABLE public.tanime (
@@ -100,6 +114,9 @@ CREATE TABLE public.tanime (
 	datestart date NULL,
 	dateend date NULL,
 	episodes int4 NULL,
+	duration int4 NULL,
+	chapters int4 NULL,
+	volumes	int4 NULL,
 	formatid int4 NULL,
 	sourceid int4 NULL,
 	statusid int4 NULL,
@@ -187,3 +204,15 @@ CREATE TABLE public.ttaglist (
 ALTER TABLE public.ttaglist ADD CONSTRAINT fk_ttaglist_tanime FOREIGN KEY (animeid) REFERENCES tanime(animeid);
 ALTER TABLE public.ttaglist ADD CONSTRAINT fk_ttaglist_ttag FOREIGN KEY (tagid) REFERENCES ttag(tagid);
 
+-- public.tstudiolist definition
+
+CREATE TABLE public.tstudiolist (
+	animeid int4 NOT NULL,
+	studioid int4 NOT NULL,
+	CONSTRAINT tstudiolist_pkey PRIMARY KEY (animeid, studioid)
+);
+
+-- public.tstudiolist foreign keys
+
+ALTER TABLE public.ttaglist ADD CONSTRAINT fk_tstudiolist_tanime FOREIGN KEY (animeid) REFERENCES tanime(animeid);
+ALTER TABLE public.ttaglist ADD CONSTRAINT fk_tstudiolist_tstudio FOREIGN KEY (studioid) REFERENCES tstudio(studioid);
