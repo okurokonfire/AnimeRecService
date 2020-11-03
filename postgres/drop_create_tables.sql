@@ -45,7 +45,7 @@ CREATE TABLE public.tstaff (
 	lastname varchar(255) NULL,
 	fullname varchar(255) NULL,
 	nativename varchar(255) NULL,
-	CONSTRAINT tstaff_aniliststaffid_key UNIQUE (anilistuserid),
+	CONSTRAINT tstaff_aniliststaffid_key UNIQUE (aniliststaffid),
 	CONSTRAINT tstaff_pkey PRIMARY KEY (staffid)
 );
 
@@ -118,10 +118,10 @@ CREATE TABLE public.tformat (
 
 CREATE TABLE public.tstudio (
 	studioid serial NOT NULL,
-	aniliststudioid int4 NOT NULL
+	aniliststudioid int4 NOT NULL,
 	name varchar(50) NULL,
 	CONSTRAINT tstudio_anilistsudioid_key UNIQUE (aniliststudioid),
-	CONSTRAINT tstudio_pkey PRIMARY KEY (formatid)
+	CONSTRAINT tstudio_pkey PRIMARY KEY (studioid)
 );
 
 -- public.tmediatype definition
@@ -246,8 +246,8 @@ CREATE TABLE public.tstudiolist (
 
 -- public.tstudiolist foreign keys
 
-ALTER TABLE public.ttaglist ADD CONSTRAINT fk_tstudiolist_tanime FOREIGN KEY (animeid) REFERENCES tanime(animeid);
-ALTER TABLE public.ttaglist ADD CONSTRAINT fk_tstudiolist_tstudio FOREIGN KEY (studioid) REFERENCES tstudio(studioid);
+ALTER TABLE public.tstudiolist ADD CONSTRAINT fk_tstudiolist_tanime FOREIGN KEY (animeid) REFERENCES tanime(animeid);
+ALTER TABLE public.tstudiolist ADD CONSTRAINT fk_tstudiolist_tstudio FOREIGN KEY (studioid) REFERENCES tstudio(studioid);
 
 -- public.tstafflist definition
 
@@ -260,5 +260,5 @@ CREATE TABLE public.tstafflist (
 
 -- public.tstafflist foreign keys
 
-ALTER TABLE public.ttaglist ADD CONSTRAINT fk_tstafflist_tanime FOREIGN KEY (animeid) REFERENCES tanime(animeid);
-ALTER TABLE public.ttaglist ADD CONSTRAINT fk_tstafflist_tstaff FOREIGN KEY (staffid) REFERENCES tstudio(staffid);
+ALTER TABLE public.tstafflist ADD CONSTRAINT fk_tstafflist_tanime FOREIGN KEY (animeid) REFERENCES tanime(animeid);
+ALTER TABLE public.tstafflist ADD CONSTRAINT fk_tstafflist_tstaff FOREIGN KEY (staffid) REFERENCES tstaff(staffid);
