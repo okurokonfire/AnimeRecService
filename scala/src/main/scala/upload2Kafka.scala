@@ -10,14 +10,14 @@ import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.streaming.Trigger
 
 object Upload2Kafka {
-    //spark.conf.set("spark.conf_dir.kafka.location","/home/gazavat/git/AnimeRecService/kafka")
-    val kafka_dir_location = spark.conf.get("spark.conf_dir.kafka.location")
     val spark = {
         SparkSession
             .builder()
             .config("spark.master", "local[1]")
             .getOrCreate()
         }
+    //spark.conf.set("spark.conf_dir.kafka.location","/home/gazavat/git/AnimeRecService/kafka")
+    val kafka_dir_location = spark.conf.get("spark.conf_dir.kafka.location")
     def killAll() = {
             SparkSession
             .active
@@ -67,8 +67,13 @@ object Upload2Kafka {
     }
 
     def upload2KafkaMediaInfo() = {
-        
+        //
+        spark.conf.set("spark.mediaProcess.reachedEnd",false)
         val kafkaParams = getKafkaParams(s"${kafka_dir_location}/kafka_params_upload_media.conf")
+        val max_id = readFile(s"${kafka_dir_location}/boundaries.conf").split("\n").map(x => {
+                val arr = x.split("\\s+")
+                arr(0) -> arr(1).toInt
+            }).toMap.getOrElse("media",1000)
         val udfGetMediaInfo = udf { (value: Int) => anilist.recsystem.CollectJsonInfo.collectMediaInfo(value) }
         val streamInfo = {
             spark.readStream
@@ -84,11 +89,11 @@ object Upload2Kafka {
             }
         //createConsoleSink(streamInfo,"console3").start
         //spark.read.format("kafka").options(Map("kafka.bootstrap.servers" -> "localhost:9092","subscribe" ->"test_topic","startingOffsets" -> "earliest")).load
-        val streamingDF = createSink("state2", streamInfo) {
+        val streamingDF = createSink("media", streamInfo) {
              (df, id) => 
-            println(df.count)
-            df.show(false)
-            println(s"This is batch $id")
+            //println(df.count)
+            //df.show(false)
+            //println(s"This is batch $id")
 
             df.filter(!col("data").startsWith("""{"errors":"""))
               .select("data")
@@ -98,20 +103,25 @@ object Upload2Kafka {
               .options(kafkaParams)
               .save
 
-            val max_curr_id = df.select("id").agg(max("id").as("id")).collect().map(x => x.getInt(0))
+            val max_curr_id = df.select("id").agg(coalesce(max("id"),lit(0)).as("id")).collect().map(x => x.getInt(0))
 
             val curr_id = Try(max_curr_id(0)).getOrElse(0)
 
-            val max_id = readFile(s"${kafka_dir_location}/boundaries.conf").split("\n").map(x => {
-                val arr = x.split("\\s+")
-                arr(0) -> arr(1).toInt
-            }).toMap.getOrElse("media",1000)
-
-            //if (max_id <= curr_id) 
+            if (max_id <= curr_id) {spark.conf.set("spark.mediaProcess.reachedEnd",true)}
 
         }
         val startedStream = streamingDF.start
-        startedStream.awaitTermination
+        //startedStream.awaitTermination
+        while(startedStream.isActive) {
+            if (spark.conf.get("spark.mediaProcess.reachedEnd").toBoolean) {
+                startedStream.stop()
+                val directory = new scala.reflect.io.Directory(new java.io.File("chk/media"))
+                directory.deleteRecursively()
+            } else {
+            // wait 10 seconds before checking again if work is complete
+                startedStream.awaitTermination(10000)
+            }
+        }
     }
 
 }
