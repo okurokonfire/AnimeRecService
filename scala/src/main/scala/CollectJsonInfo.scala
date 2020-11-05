@@ -1,9 +1,5 @@
 package anilist.recsystem
 
-
-//import io.circe._
-//import io.circe.parser._
-//import com.google.gson.Gson
 import play.api.libs.json._
 import scala.util.Try
 
@@ -12,7 +8,7 @@ import org.apache.http.impl.client.DefaultHttpClient
 import org.apache.http.entity.StringEntity
 import org.apache.http.util.EntityUtils
 import java.nio.charset.StandardCharsets
-//import java.sql.{Connection, DriverManager, ResultSet}
+
 
 object CollectJsonInfo {
     def collectInfo(params: String) = {
@@ -100,9 +96,10 @@ object CollectJsonInfo {
                 }
               }
             }"
-        , "variables": "{$$id : $mediaID}"
+        , "variables": {"id": ${mediaID}}
         }
         """
+        //println(params)
         collectInfo(params)
         
     }
@@ -144,7 +141,5 @@ object CollectJsonInfo {
         val userId = Try((json \ "data" \ "User" \ "id").get.toString.toInt).getOrElse(throw new Exception("user is incorrect"))
         collectUserInfo(userId,mediaType)
     }
-  //def main(args: Array[String]): Unit = {
-  //    println("Hello, World!")
-  //}
+
 }

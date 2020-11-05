@@ -36,6 +36,15 @@ DROP TABLE public.tstaff;
 
 DROP TABLE public.tmediatype;
 
+DROP TABLE public.counters;
+
+CREATE TABLE public.counters (
+	counterid int4 NOT NULL,
+	countername varchar(255) NULL,
+	value int4 NULL,
+	CONSTRAINT tcounters_pkey PRIMARY KEY (counterid)
+);
+
 -- public.tstaff definition
 
 CREATE TABLE public.tstaff (

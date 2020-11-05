@@ -19,6 +19,8 @@ libraryDependencies += "org.apache.spark" %% "spark-sql" % "3.0.1"
 
 libraryDependencies += "org.apache.spark" %% "spark-mllib" % "3.0.1" % "provided"
 
+libraryDependencies += "org.apache.spark" %% "spark-sql-kafka-0-10" % "3.0.1" % "provided"
+
 libraryDependencies += "org.scalatest" %% "scalatest" % "3.2.0" % "test" 
 libraryDependencies += "org.scalactic" %% "scalactic" % "3.2.0"
 

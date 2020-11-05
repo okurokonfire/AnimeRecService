@@ -12,9 +12,9 @@ class CollectJsonTest extends AnyFlatSpec with Matchers {
     //result should  include """{"errors":[{"message":"No query or mutation provided. Please view https:\/\/anilist.co\/graphiql to see available queries and mutations.","status":400,"locations":[{"line":1,"column":1}]}],"data":null}""" ()
 
     "result" should "not be error line" in {
-        val res = anilist.recsystem.CollectJsonInfo.collectMediaInfo(1) 
+        val res = anilist.recsystem.CollectJsonInfo.collectMediaInfo(704) 
         //println(res)
-        res should startWith ("""{"data":{"Media":{"id":1,"type":"ANIME","title":{"romaji":"Cowboy Bebop","english":"Cowboy Bebop","native":""")
+        res should startWith ("""{"data":{"Media":{"id":704""")
     }  
 
     "collect user info" should "not fail" in {
