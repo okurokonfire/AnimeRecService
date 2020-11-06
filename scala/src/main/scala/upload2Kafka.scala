@@ -35,7 +35,7 @@ object Upload2Kafka {
             df
             .writeStream
             .format("console")
-            .option("truncate", "false")
+            .option("truncate", "true")
             .option("checkpointLocation", s"chk/$fileName")
             .option("numRows", "10")
             .trigger(Trigger.ProcessingTime("10 seconds"))
@@ -116,6 +116,68 @@ object Upload2Kafka {
             if (spark.conf.get("spark.mediaProcess.reachedEnd").toBoolean) {
                 startedStream.stop()
                 val directory = new scala.reflect.io.Directory(new java.io.File("chk/media"))
+                directory.deleteRecursively()
+            } else {
+            // wait 10 seconds before checking again if work is complete
+                startedStream.awaitTermination(10000)
+            }
+        }
+    }
+
+    def upload2KafkaUserInfo() = {
+        //
+        spark.conf.set("spark.userProcess.reachedEnd",false)
+        val kafkaParams = getKafkaParams(s"${kafka_dir_location}/kafka_params_upload_user.conf")
+        val max_id = readFile(s"${kafka_dir_location}/boundaries.conf").split("\n").map(x => {
+                val arr = x.split("\\s+")
+                arr(0) -> arr(1).toInt
+            }).toMap.getOrElse("user",1000)
+        val udfGetUserAnimeInfo = udf { (value: Int) => anilist.recsystem.CollectJsonInfo.collectUserInfo(value,"ANIME") }
+        val udfGetUserMangaInfo = udf { (value: Int) => anilist.recsystem.CollectJsonInfo.collectUserInfo(value,"MANGA") }
+        val streamInfo = {
+            spark.readStream
+                 .format("rate")
+                 .option("rowsPerSecond", "1")
+                 .option("rampUpTime", "5")
+                 .option("numPartitions", "1")
+                 .load()
+                 .withColumn("anime",when(col("value")%lit(10)===0,udfGetUserAnimeInfo((col("value")/lit(10)).cast("int")))
+                                   .otherwise("""{"errors":"""))
+                 .withColumn("manga",when(col("value")%lit(10)===0,udfGetUserMangaInfo((col("value")/lit(10)).cast("int")))
+                                   .otherwise("""{"errors":"""))
+                 .withColumn("id",(col("value")/lit(10)).cast("int"))
+                 .select("id","anime","manga")
+            }
+        //createConsoleSink(streamInfo,"console3").start
+        //spark.read.format("kafka").options(Map("kafka.bootstrap.servers" -> "localhost:9092","subscribe" ->"test_topic","startingOffsets" -> "earliest")).load
+        val streamingDF = createSink("user", streamInfo) {
+             (df, id) => 
+            println(df.count)
+            df.show()
+            println(s"This is batch $id")
+
+            df.filter((!col("anime").startsWith("""{"errors":"""))||(!col("manga").startsWith("""{"errors":""")))
+              .select("anime","manga")
+              .withColumn("value",concat(lit("""{"anime":"""),col("anime"),lit(""","manga": """),col("manga"),lit("}")))
+              .select("value")
+              .write
+              .format("kafka")
+              .options(kafkaParams)
+              .save
+
+            val max_curr_id = df.select("id").agg(coalesce(max("id"),lit(0)).as("id")).collect().map(x => x.getInt(0))
+
+            val curr_id = Try(max_curr_id(0)).getOrElse(0)
+
+            if (max_id <= curr_id) {spark.conf.set("spark.userProcess.reachedEnd",true)}
+
+        }
+        val startedStream = streamingDF.start
+        //startedStream.awaitTermination
+        while(startedStream.isActive) {
+            if (spark.conf.get("spark.userProcess.reachedEnd").toBoolean) {
+                startedStream.stop()
+                val directory = new scala.reflect.io.Directory(new java.io.File("chk/user"))
                 directory.deleteRecursively()
             } else {
             // wait 10 seconds before checking again if work is complete
