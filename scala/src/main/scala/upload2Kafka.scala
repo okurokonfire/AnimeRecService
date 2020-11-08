@@ -2,7 +2,7 @@ package anilist.recsystem
 
 import play.api.libs.json._
 import scala.util.Try
-
+import org.apache.log4j.{Level, Logger}
 import org.apache.spark.sql.SparkSession
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types._
@@ -10,6 +10,7 @@ import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.streaming.Trigger
 
 object Upload2Kafka {
+    Logger.getLogger("org.apache.spark").setLevel(Level.WARN)
     val spark = {
         SparkSession
             .builder()
@@ -183,6 +184,15 @@ object Upload2Kafka {
             // wait 10 seconds before checking again if work is complete
                 startedStream.awaitTermination(10000)
             }
+        }
+    }
+
+    def main(args: Array[String]): Unit = {
+        val mode = Try(args(0)).getOrElse(throw new Exception("you should declare mode"))
+        mode match {
+            case "media" => upload2KafkaMediaInfo()
+            case "user"  => upload2KafkaUserInfo()
+            case _       => throw new Exception("incorrect mode")
         }
     }
 
