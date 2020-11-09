@@ -9,3 +9,9 @@ null
 .metals
 .vscode
 .bsp
+postgres.conf
+postgresql.csr
+postgresql.pk8
+postgresql.crt
+postgresql.key
+root.crt
