@@ -105,11 +105,19 @@ object Utils {
     }
     def getSQLConnection() = {
         ///DriverManager.getConnection()
+        Class.forName("org.postgresql.Driver")
         val params = getSQLParams()
         val url = s"jdbc:postgresql://${params("host")}:${params("port")}/${params("dbname")}?user=${params("user")}&sslcert=${params("sslcert")}&sslkey=${params("sslkey")}&sslrootcert=${params("sslrootcert")}&sslmode=${params("sslmode")}"
 
         val sql_connection = DriverManager.getConnection(url)
         sql_connection
+    }
+
+    def isnull(variable: play.api.libs.json.JsValue, value: Int) = {
+        variable.toString.toLowerCase() match {
+            case "null" => value
+            case _ => variable.toString.toInt
+        }
     }
 
 }
