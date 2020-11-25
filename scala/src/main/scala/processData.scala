@@ -27,73 +27,20 @@ object ProcessData {
         ???
     }
 
-    def getMediaTypeId(stmt: Statement, mediaName: String): Int = {
-        val query = s"select mediatypeid from public.tmediatype where name = '${mediaName}';"
-        val rs = stmt.executeQuery(query)
-        rs.next match {
-            case true => rs.getInt(1)
-            case false => {
-                val q = s"insert into public.tmediatype(name) select '${mediaName}';"
-                val rs0 = stmt.executeUpdate(q)
-                val rs1 = stmt.executeQuery(query)
-                if (rs1.next) {
-                    rs1.getInt(1)
-                } else {
-                    throw new Exception(s"something went wrong while inserting mediaType = $mediaName")
-                }
-            }
-        }
-    }
 
-    def getFormatId(stmt: Statement, format: String): Int = {
-        val query = s"select formatid from public.tformat where name = '${format}';"
+    def getIdByNameType(stmt: Statement,`type` : String,  name: String): Int = {
+        val query = s"select ${`type`}id from public.t${`type`} where name = '${name}';"
         val rs = stmt.executeQuery(query)
         rs.next match {
             case true => rs.getInt(1)
             case false => {
-                val q = s"insert into public.tformat(name) select '${format}';"
+                val q = s"insert into public.t${`type`}(name) select '${name}';"
                 stmt.executeUpdate(q)
                 val rs1 = stmt.executeQuery(query)
                 if (rs1.next) {
                     rs1.getInt(1)
                 } else {
-                    throw new Exception(s"something went wrong while inserting format = $format")
-                }
-            }
-        }
-    }
-
-    def getSourceId(stmt: Statement, source: String): Int = {
-        val query = s"select sourceid from public.tsource where name = '${source}';"
-        val rs = stmt.executeQuery(query)
-        rs.next match {
-            case true => rs.getInt(1)
-            case false => {
-                val q = s"insert into public.tsource(name) select '${source}';"
-                stmt.executeUpdate(q)
-                val rs1 = stmt.executeQuery(query)
-                if (rs1.next) {
-                    rs1.getInt(1)
-                } else {
-                    throw new Exception(s"something went wrong while inserting source = $source")
-                }
-            }
-        }
-    }
-
-    def getStatusId(stmt: Statement, status: String): Int = {
-        val query = s"select statusid from public.tstatus where name = '${status}';"
-        val rs = stmt.executeQuery(query)
-        rs.next match {
-            case true => rs.getInt(1)
-            case false => {
-                val q = s"insert into public.tstatus(name) select '${status}';"
-                stmt.executeUpdate(q)
-                val rs1 = stmt.executeQuery(query)
-                if (rs1.next) {
-                    rs1.getInt(1)
-                } else {
-                    throw new Exception(s"something went wrong while inserting status = $status")
+                    throw new Exception(s"something went wrong while inserting ${`type`} = $name")
                 }
             }
         }
@@ -122,7 +69,7 @@ object ProcessData {
             val media = json \ "data" \ "Media"
             val anilistMediaID = media("id").toString.toInt
             val mediaType = cleanTitles(media("type").toString)
-            val mediaTypeId = getMediaTypeId(stmt,mediaType)
+            val mediaTypeId = getIdByNameType(stmt,"mediatype",mediaType)
             val title = media("title")
             val romajiTitle = cleanTitles(title("romaji").toString)
             val englishTitle = cleanTitles(title("english").toString)
@@ -137,7 +84,7 @@ object ProcessData {
             val chapters = Try(media("chapters").toString.toInt).getOrElse(0)
             val volumes = Try(media("volumes").toString.toInt).getOrElse(0)
             val format = cleanTitles(media("format").toString)
-            val formatID = getFormatId(stmt,format)
+            val formatID = getIdByNameType(stmt,"format",format)
             val tags = media("tags").as[JsArray].value.map(line => {
                 MediaTag(line("id").toString.toInt,line("name").toString,line("category").toString)
             }).toSet
@@ -145,11 +92,11 @@ object ProcessData {
                 genre.toString
             }).toSet
             val source = cleanTitles(media("source").toString)
-            val sourceID = getSourceId(stmt, source)
+            val sourceID = getIdByNameType(stmt, "source",source)
 
 
             val status = cleanTitles(media("status").toString)
-            val statusID = getStatusId(stmt, status)
+            val statusID = getIdByNameType(stmt,"status", status)
 
             val studios = media("studios")("edges").as[JsArray].value.map(line => {
                 MediaStudio(line("node")("id").toString.toInt,line("node")("name").toString,line("isMain").toString.toBoolean)
