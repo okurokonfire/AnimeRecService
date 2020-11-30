@@ -3,11 +3,11 @@ package anilist.recsystem
 import play.api.libs.json._
 import scala.util.Try
 import org.apache.log4j.{Level, Logger}
-import org.apache.spark.sql.SparkSession
-import org.apache.spark.sql.functions._
-import org.apache.spark.sql.types._
-import org.apache.spark.sql.DataFrame
-import org.apache.spark.sql.streaming.Trigger
+//import org.apache.spark.sql.SparkSession
+//import org.apache.spark.sql.functions._
+//import org.apache.spark.sql.types._
+//import org.apache.spark.sql.DataFrame
+//import org.apache.spark.sql.streaming.Trigger
 import java.sql.{Connection, DriverManager, ResultSet, Statement}
 
 import anilist.recsystem.Utils._
@@ -56,6 +56,134 @@ object ProcessData {
         val newDate = Try(java.time.LocalDate.of(year,month,day)).getOrElse(java.time.LocalDate.of(1900,1,1))
         newDate.toString
     }
+
+    def processAnime(stmt: Statement, anime: Anime): Int ={
+        val anilistID = anime.animeListId
+        val query = s"select animeid, anilistanimeid, title, datestart, dateend, episodes, duration, chapters, volumes, formatid, sourceid, statusid, mediatypeid from tanime where anilistanimeid = $anilistID"
+        val rs = stmt.executeQuery(query)
+        rs.next match {
+            case true  => {
+                val (animeid, curr_anime) = (rs.getInt(1),Anime(rs.getInt(2),rs.getString(3),rs.getDate(4).toString,rs.getDate(5).toString,rs.getInt(6),rs.getInt(7),rs.getInt(8),rs.getInt(9),rs.getInt(10),rs.getInt(11),rs.getInt(12),rs.getInt(13)))
+                (curr_anime == anime) match {
+                    case true  => animeid
+                    case false => {
+                        val updateQuery = s"""
+                            update public.tanime 
+                            set 
+                               	anilistanimeid = '${anime.animeListId}',
+	                            title          = '${anime.title}'      ,
+	                            datestart      = '${anime.dateStart}'  ,
+	                            dateend        = '${anime.dateEnd}'    ,
+	                            episodes       = '${anime.episodes}'   ,
+	                            duration       = '${anime.duration}'   ,
+	                            chapters       = '${anime.chapters}'   ,
+	                            volumes        = '${anime.volumes}'    ,
+	                            formatid       = '${anime.formatID}'   ,
+	                            sourceid       = '${anime.sourceID}'   ,
+	                            statusid       = '${anime.statusID}'   ,
+	                            mediatypeid    = '${anime.mediaTypeId}'
+                            where animeid = ${animeid}
+                            ;
+                        """
+                        stmt.executeUpdate(updateQuery)
+                        animeid
+                    }
+                }
+            }
+            case false => {
+                val insertQuery = s"""
+                    insert into public.tanime 
+                    (
+                    	anilistanimeid ,
+	                    title,
+	                    datestart,
+	                    dateend,
+	                    episodes,
+	                    duration,
+	                    chapters,
+	                    volumes,
+	                    formatid,
+	                    sourceid,
+	                    statusid,
+	                    mediatypeid
+                    )  
+                    select 
+                    	'${anime.animeListId}' ,
+	                    '${anime.title}',
+	                    '${anime.dateStart}',
+	                    '${anime.dateEnd}',
+	                    '${anime.episodes}',
+	                    '${anime.duration}',
+	                    '${anime.chapters}',
+	                    '${anime.volumes}',
+	                    '${anime.formatID}',
+	                    '${anime.sourceID}',
+	                    '${anime.statusID}',
+	                    '${anime.mediaTypeId}'
+                    ;
+                """
+                stmt.executeUpdate(insertQuery)
+                val rs0 = stmt.executeQuery(query)
+                if (rs0.next) {
+                    rs0.getInt(1)
+                } else {
+                    throw new Exception(s"something went wrong while inserting anime = $anime")
+                }
+            }
+        }
+    }
+
+    def linkAnimeGenre(stmt: Statement, animeid: Int, genreName: String) = {
+        val genreID = getIdByNameType(stmt, "genre", genreName)
+        val linkQuery = s"""
+        insert into tgenrelist 
+        (
+            genreid,
+            animeid
+        )
+        select
+            $genreID,
+            $animeid;"""
+        stmt.executeUpdate(linkQuery)
+    }
+
+    def unlinkAnimeGenre(stmt: Statement, animeid: Int, genreName: String) = {
+        val genreID = getIdByNameType(stmt, "genre", genreName)
+        val linkQuery = s"""
+        delete from tgenrelist 
+        where genreid = $genreID
+          and animeid = $animeid;"""
+        stmt.executeUpdate(linkQuery)
+    }
+
+    def processGenres(stmt: Statement, animeid: Int, genres: Set[String]) = {
+        val query = s"""
+            select g.name 
+              from tgenrelist gl
+        inner join tgenre g
+                on gl.genreid = g.genreid
+             where gl.animeid = $animeid
+        """
+        val rs = stmt.executeQuery(query)
+
+        val existed_genres = new Iterator[String] {
+                    def hasNext = rs.next()
+                    def next()  = rs.getString(1)
+                }.toSet
+        (genres == existed_genres) match {
+            case true  => Set(0)
+            case false => {
+                val extra = existed_genres.diff(genres)
+                val new_genres = genres.diff(existed_genres)
+                new_genres.map( x =>{
+                    linkAnimeGenre(stmt,animeid,x)
+                })
+                extra.map(x => {
+                    unlinkAnimeGenre(stmt,animeid,x)
+                })
+            }
+        }
+    }
     
     def processMediaInfo(input: String) = {
         //val input = anilist.recsystem.CollectJsonInfo.collectMediaInfo(722)
@@ -86,10 +214,10 @@ object ProcessData {
             val format = cleanTitles(media("format").toString)
             val formatID = getIdByNameType(stmt,"format",format)
             val tags = media("tags").as[JsArray].value.map(line => {
-                MediaTag(line("id").toString.toInt,line("name").toString,line("category").toString)
+                MediaTag(line("id").toString.toInt,cleanTitles(line("name").toString),cleanTitles(line("category").toString))
             }).toSet
             val genres = media("genres").as[JsArray].value.map(genre => {
-                genre.toString
+                cleanTitles(genre.toString)
             }).toSet
             val source = cleanTitles(media("source").toString)
             val sourceID = getIdByNameType(stmt, "source",source)
@@ -108,13 +236,10 @@ object ProcessData {
 
             val anime = Anime(anilistMediaID, romajiTitle, startDate, endDate, episodes, duration, chapters, volumes, formatID, sourceID, statusID, mediaTypeId)
 
-            val rs = stmt.executeQuery(s"select animeid from public.tanime where anilistanimeid = $anilistMediaID;")
+            val animeid = processAnime(stmt, anime)
 
-            if (rs.next) {
-                updateMedia()
-            } else {
-                insertMedia()
-            }
+            processGenres(stmt, animeid, genres)
+
 
             sql_connection.commit()
         }).getOrElse(throw new Exception(s"Error while processing ${input}"))

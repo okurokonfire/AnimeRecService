@@ -98,6 +98,11 @@ CREATE TABLE public.tnametype (
 	CONSTRAINT tnametype_pkey PRIMARY KEY (nametypeid)
 );
 
+insert into public.tnametype (name) select 'romaji';
+insert into public.tnametype (name) select 'english';
+insert into public.tnametype (name) select 'native';
+insert into public.tnametype (name) select 'synonyms';
+
 -- public.tgenre definition
 
 CREATE TABLE public.tgenre (
