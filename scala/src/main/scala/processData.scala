@@ -2,7 +2,7 @@ package anilist.recsystem
 
 import play.api.libs.json._
 import scala.util.Try
-import org.apache.log4j.{Level, Logger}
+//import org.apache.log4j.{Level, Logger}
 //import org.apache.spark.sql.SparkSession
 //import org.apache.spark.sql.functions._
 //import org.apache.spark.sql.types._
@@ -246,7 +246,7 @@ object ProcessData {
         inner join ttag t 
                 on tl.tagid = t.tagid 
         inner join ttagcategory tc
-                on tc.categoryid = t.categoryid 
+                on tc.tagcategoryid = t.categoryid 
              where tl.animeid  = $animeid
         """
         val rs = stmt.executeQuery(query)
@@ -358,7 +358,7 @@ object ProcessData {
     
     def processMediaInfo(input: String) = {
         //val input = anilist.recsystem.CollectJsonInfo.collectMediaInfo(722)
-        //spark; spark.conf.set("spark.conf_dir.postgres.location","/home/gazavat/git/AnimeRecService/postgres")
+        //{spark; spark.conf.set("spark.conf_dir.postgres.location","/home/gazavat/git/AnimeRecService/postgres")}
         val sql_connection = getSQLConnection
         sql_connection.setAutoCommit(false)
         sql_connection.setTransactionIsolation(Connection.TRANSACTION_REPEATABLE_READ)
