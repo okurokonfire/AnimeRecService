@@ -61,7 +61,7 @@ CREATE TABLE public.tstaff (
 -- public.ttagcategory definition
 
 CREATE TABLE public.ttagcategory (
-	categoryid serial NOT NULL,
+	tagcategoryid serial NOT NULL,
 	name varchar(255) NULL,
 	CONSTRAINT ttagcategory_pkey PRIMARY KEY (categoryid)
 );
@@ -97,6 +97,11 @@ CREATE TABLE public.tnametype (
 	name varchar(50) NULL,
 	CONSTRAINT tnametype_pkey PRIMARY KEY (nametypeid)
 );
+
+insert into public.tnametype (name) select 'romaji';
+insert into public.tnametype (name) select 'english';
+insert into public.tnametype (name) select 'native';
+insert into public.tnametype (name) select 'synonyms';
 
 -- public.tgenre definition
 

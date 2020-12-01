@@ -2,69 +2,11 @@ package anilist.recsystem
 
 import play.api.libs.json._
 import scala.util.Try
-
-import org.apache.spark.sql.SparkSession
 import org.apache.spark.sql.functions._
-import org.apache.spark.sql.types._
-import org.apache.spark.sql.DataFrame
-import org.apache.spark.sql.streaming.Trigger
+
+import anilist.recsystem.Utils._
 
 object Upload2Kafka {
-    val spark = {
-        SparkSession
-            .builder()
-            .config("spark.master", "local[1]")
-            .getOrCreate()
-        }
-    //spark.conf.set("spark.conf_dir.kafka.location","/home/gazavat/git/AnimeRecService/kafka")
-    val kafka_dir_location = spark.conf.get("spark.conf_dir.kafka.location")
-    def killAll() = {
-            SparkSession
-            .active
-            .streams
-            .active
-            .foreach { x =>
-                        val desc = x.lastProgress.sources.head.description
-                        x.stop
-                        println(s"Stopped ${desc}")
-            }               
-        }
-
-    def createConsoleSink(df: DataFrame, 
-                              fileName: String) = {
-            df
-            .writeStream
-            .format("console")
-            .option("truncate", "true")
-            .option("checkpointLocation", s"chk/$fileName")
-            .option("numRows", "10")
-            .trigger(Trigger.ProcessingTime("10 seconds"))
-        }
-    
-    def createSink(chkName: String, df: DataFrame)(batchFunc: (DataFrame,Long) => Unit) = {
-        df
-        .writeStream
-        .trigger(Trigger.ProcessingTime("10 seconds"))
-        .option("checkpointLocation", s"chk/$chkName")
-        .foreachBatch(batchFunc)
-    }
-
-    def readFile(path: String) = {
-        val source = scala.io.Source.fromFile(path)
-        try source.mkString finally source.close()
-    }
-
-    def getKafkaParams(conf_file: String) = {
-        Try({
-            val lines = readFile(conf_file)
-            lines.split("\n").map(line => {
-                val arr = line.split("\\s+")
-                arr(0) -> arr(1)
-            }).toMap
-        }).getOrElse(
-            throw new Exception("Kafka conf file is missing or has incorrect format")
-        )
-    }
 
     def upload2KafkaMediaInfo() = {
         //
@@ -152,9 +94,9 @@ object Upload2Kafka {
         //spark.read.format("kafka").options(Map("kafka.bootstrap.servers" -> "localhost:9092","subscribe" ->"test_topic","startingOffsets" -> "earliest")).load
         val streamingDF = createSink("user", streamInfo) {
              (df, id) => 
-            println(df.count)
-            df.show()
-            println(s"This is batch $id")
+            //println(df.count)
+            //df.show()
+            //println(s"This is batch $id")
 
             df.filter((!col("anime").startsWith("""{"errors":"""))||(!col("manga").startsWith("""{"errors":""")))
               .select("anime","manga")
@@ -183,6 +125,15 @@ object Upload2Kafka {
             // wait 10 seconds before checking again if work is complete
                 startedStream.awaitTermination(10000)
             }
+        }
+    }
+
+    def main(args: Array[String]): Unit = {
+        val mode = Try(args(0)).getOrElse(throw new Exception("you should declare mode"))
+        mode match {
+            case "media" => upload2KafkaMediaInfo()
+            case "user"  => upload2KafkaUserInfo()
+            case _       => throw new Exception("incorrect mode")
         }
     }
 
