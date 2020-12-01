@@ -13,11 +13,7 @@ import java.sql.{Connection, DriverManager, ResultSet, Statement}
 import anilist.recsystem.Utils._
 
 object ProcessData {
-    case class MediaTag (id: Int, name: String, category: String)
-    case class MediaStudio (id: Int, name: String, isMain: Boolean)
-    case class MediaStaff (id: Int, firstName: String, lastName: String, fullName: String, nativeName: String, role: String)
-    case class Anime (animeListId: Int, title: String, dateStart: String, dateEnd: String, episodes: Int, duration: Int, chapters: Int, volumes: Int, formatID: Int, sourceID: Int, statusID: Int, mediaTypeId: Int)
-    case class MediaNames (romaji: String, english: String, native: String, synonyms: IndexedSeq[String])
+
 
     def getIdByNameType(stmt: Statement,`type` : String,  name: String): Int = {
         val query = s"select ${`type`}id from public.t${`type`} where name = '${name}';"
@@ -37,9 +33,16 @@ object ProcessData {
         }
     }
 
-    def cleanTitles(input: String) : String = input match {
-        case "null" => "null"
-        case x => input.slice(1,input.length - 1)
+    def cleanTitles(input: String): String = {
+        val start = input.head match {
+            case '\"' => 1
+            case _    => 0
+        }
+        val end = input.last match {
+            case '\"' => input.length - 1
+            case _    => input.length
+        }
+        input.slice(start,end)
     }
 
     def getDate(date: play.api.libs.json.JsValue) = {
@@ -162,15 +165,15 @@ object ProcessData {
                     def next()  = rs.getString(1)
                 }.toSet
         (genres == existed_genres) match {
-            case true  => Set(0)
+            case true  => Set(-1)
             case false => {
                 val extra = existed_genres.diff(genres)
                 val new_genres = genres.diff(existed_genres)
-                new_genres.map( x =>{
-                    linkAnimeGenre(stmt,animeid,x)
-                })
                 extra.map(x => {
                     unlinkAnimeGenre(stmt,animeid,x)
+                })
+                new_genres.map( x =>{
+                    linkAnimeGenre(stmt,animeid,x)
                 })
             }
         }
@@ -234,6 +237,8 @@ object ProcessData {
         stmt.executeUpdate(linkQuery)
     }
 
+
+
     def processTags(stmt: Statement, animeid: Int, tags: Set[MediaTag]) = {
         val query = s"""
             select t.anilisttagid, t.name, tc.name
@@ -251,21 +256,104 @@ object ProcessData {
                     def next()  = MediaTag(rs.getInt(1),rs.getString(2),rs.getString(3))
                 }.toSet
         (tags == existed_tags) match {
-            case true  => Set(0)
+            case true  => Set(-1)
             case false => {
-                case false => {
                 val extra = existed_tags.diff(tags)
                 val new_tags = tags.diff(existed_tags)
-                new_tags.map( x =>{
-                    linkAnimeTag(stmt,animeid,x)
-                })
                 extra.map(x => {
                     unlinkAnimeTag(stmt,animeid,x)
                 })
+                new_tags.map( x =>{
+                    linkAnimeTag(stmt,animeid,x)
+                })
             }
+        } 
+    }
+
+    def getStudioId(stmt: Statement, studio: MediaStudio) = {
+        val query = s"""
+        select studioid
+        from tstudio
+        where aniliststudioid = ${studio.id}
+        """
+        val rs = stmt.executeQuery(query)
+        rs.next match {
+            case true  => rs.getInt(1)
+            case false => {
+                val insertQuery = s"""
+                insert into tstudio
+                (
+                    aniliststudioid,
+                    name
+                )
+                select
+                    ${studio.id},
+                    '${studio.name}'
+                """
+                stmt.executeUpdate(insertQuery)
+                val rs0 = stmt.executeQuery(query)
+                if (rs0.next) {
+                    rs0.getInt(1)
+                } else {
+                    throw new Exception(s"something went wrong while inserting studio = $studio")
+                }
             }
         }
-        
+    }
+
+    def linkAnimeStudio(stmt: Statement, animeid: Int, studio: MediaStudio) = {
+        val studioid = getStudioId(stmt,studio)
+        val linkQuery = s"""
+        insert into tstudiolist 
+        (
+            studioid,
+            animeid,
+            ismain
+        )
+        select
+            $studioid,
+            $animeid,
+            ${studio.isMain}
+            ;"""
+        stmt.executeUpdate(linkQuery)
+    }
+
+    def unlinkAnimeStudio(stmt: Statement, animeid: Int, studio: MediaStudio) = {
+        val studioid = getStudioId(stmt,studio)
+        val linkQuery = s"""
+        delete from tstudiolist 
+        where studioid = $studioid
+          and animeid = $animeid;"""
+        stmt.executeUpdate(linkQuery)
+    }
+
+    def processStudios(stmt: Statement, animeid: Int, studios: Set[MediaStudio]) = {
+        val query = s"""
+        select s.aniliststudioid, s.name, sl.ismain 
+          from tstudiolist sl
+    inner join tstudio s
+            on s.studioid = sl.studioid 
+         where sl.animeid = $animeid
+        """
+        val rs = stmt.executeQuery(query)
+
+        val existed_studios = new Iterator[MediaStudio] {
+                    def hasNext = rs.next()
+                    def next()  = MediaStudio(rs.getInt(1),rs.getString(2),rs.getBoolean(3))
+                }.toSet
+        (existed_studios == studios) match {
+            case true  => Set(-1)
+            case false => {
+                val extra = existed_studios.diff(studios)
+                val new_studios = studios.diff(existed_studios)
+                extra.map(x => {
+                    unlinkAnimeStudio(stmt,animeid,x)
+                })
+                new_studios.map( x =>{
+                    linkAnimeStudio(stmt,animeid,x)
+                })
+            }
+        }
     }
     
     def processMediaInfo(input: String) = {
@@ -311,7 +399,7 @@ object ProcessData {
             val statusID = getIdByNameType(stmt,"status", status)
 
             val studios = media("studios")("edges").as[JsArray].value.map(line => {
-                MediaStudio(line("node")("id").toString.toInt,line("node")("name").toString,line("isMain").toString.toBoolean)
+                MediaStudio(line("node")("id").toString.toInt,cleanTitles(line("node")("name").toString),line("isMain").toString.toBoolean)
             }).toSet
 
             val staff = media("staff")("edges").as[JsArray].value.map(line => {
@@ -326,6 +414,7 @@ object ProcessData {
 
             processTags(stmt, animeid, tags)
 
+            processStudios(stmt, animeid, studios)
 
             sql_connection.commit()
         }).getOrElse(throw new Exception(s"Error while processing ${input}"))
