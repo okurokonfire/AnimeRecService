@@ -19,15 +19,6 @@ object ProcessData {
     case class Anime (animeListId: Int, title: String, dateStart: String, dateEnd: String, episodes: Int, duration: Int, chapters: Int, volumes: Int, formatID: Int, sourceID: Int, statusID: Int, mediaTypeId: Int)
     case class MediaNames (romaji: String, english: String, native: String, synonyms: IndexedSeq[String])
 
-    def updateMedia(anime: Anime, animeNames: MediaNames, staff: Set[MediaStaff], tags: Set[MediaTag], studios: Set[MediaStudio]) = {
-        ???
-    }
-
-    def insertMedia(anime: Anime, animeNames: MediaNames, staff: Set[MediaStaff], tags: Set[MediaTag], studios: Set[MediaStudio]) = {
-        ???
-    }
-
-
     def getIdByNameType(stmt: Statement,`type` : String,  name: String): Int = {
         val query = s"select ${`type`}id from public.t${`type`} where name = '${name}';"
         val rs = stmt.executeQuery(query)
@@ -184,9 +175,102 @@ object ProcessData {
             }
         }
     }
+
+    def getTagId(stmt: Statement, tag: MediaTag) : Int = {
+        val query = s"""
+        select tagid
+        from ttag
+        where anilisttagid = ${tag.id}
+        """
+        val rs = stmt.executeQuery(query)
+        rs.next match {
+            case true  => rs.getInt(1)
+            case false => {
+                val categoryId = getIdByNameType(stmt,"tagcategory", tag.category)
+                val insertQuery = s"""
+                insert into ttag
+                (
+                    anilisttagid,
+                    categoryid,
+                    name
+                )
+                select
+                    ${tag.id},
+                    ${categoryId},
+                    '${tag.name}'
+                """
+                stmt.executeUpdate(insertQuery)
+                val rs0 = stmt.executeQuery(query)
+                if (rs0.next) {
+                    rs0.getInt(1)
+                } else {
+                    throw new Exception(s"something went wrong while inserting tag = $tag")
+                }
+            }
+        }
+    }
+       
+
+    def linkAnimeTag(stmt: Statement, animeid: Int, tag: MediaTag) = {
+        val tagid = getTagId(stmt,tag)
+        val linkQuery = s"""
+        insert into ttaglist 
+        (
+            tagid,
+            animeid
+        )
+        select
+            $tagid,
+            $animeid;"""
+        stmt.executeUpdate(linkQuery)
+    }
+
+    def unlinkAnimeTag(stmt: Statement, animeid: Int, tag: MediaTag) = {
+        val tagid = getTagId(stmt,tag)
+        val linkQuery = s"""
+        delete from ttaglist 
+        where tagid = $tagid
+          and animeid = $animeid;"""
+        stmt.executeUpdate(linkQuery)
+    }
+
+    def processTags(stmt: Statement, animeid: Int, tags: Set[MediaTag]) = {
+        val query = s"""
+            select t.anilisttagid, t.name, tc.name
+              from ttaglist tl
+        inner join ttag t 
+                on tl.tagid = t.tagid 
+        inner join ttagcategory tc
+                on tc.categoryid = t.categoryid 
+             where tl.animeid  = $animeid
+        """
+        val rs = stmt.executeQuery(query)
+
+        val existed_tags = new Iterator[MediaTag] {
+                    def hasNext = rs.next()
+                    def next()  = MediaTag(rs.getInt(1),rs.getString(2),rs.getString(3))
+                }.toSet
+        (tags == existed_tags) match {
+            case true  => Set(0)
+            case false => {
+                case false => {
+                val extra = existed_tags.diff(tags)
+                val new_tags = tags.diff(existed_tags)
+                new_tags.map( x =>{
+                    linkAnimeTag(stmt,animeid,x)
+                })
+                extra.map(x => {
+                    unlinkAnimeTag(stmt,animeid,x)
+                })
+            }
+            }
+        }
+        
+    }
     
     def processMediaInfo(input: String) = {
         //val input = anilist.recsystem.CollectJsonInfo.collectMediaInfo(722)
+        //spark; spark.conf.set("spark.conf_dir.postgres.location","/home/gazavat/git/AnimeRecService/postgres")
         val sql_connection = getSQLConnection
         sql_connection.setAutoCommit(false)
         sql_connection.setTransactionIsolation(Connection.TRANSACTION_REPEATABLE_READ)
@@ -239,6 +323,8 @@ object ProcessData {
             val animeid = processAnime(stmt, anime)
 
             processGenres(stmt, animeid, genres)
+
+            processTags(stmt, animeid, tags)
 
 
             sql_connection.commit()

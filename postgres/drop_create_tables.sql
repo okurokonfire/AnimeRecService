@@ -61,7 +61,7 @@ CREATE TABLE public.tstaff (
 -- public.ttagcategory definition
 
 CREATE TABLE public.ttagcategory (
-	categoryid serial NOT NULL,
+	tagcategoryid serial NOT NULL,
 	name varchar(255) NULL,
 	CONSTRAINT ttagcategory_pkey PRIMARY KEY (categoryid)
 );
