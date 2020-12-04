@@ -8,7 +8,9 @@ import scala.util.Try
 //import org.apache.spark.sql.types._
 //import org.apache.spark.sql.DataFrame
 //import org.apache.spark.sql.streaming.Trigger
-import java.sql.{Connection, DriverManager, ResultSet, Statement}
+//import java.sql.{Connection, DriverManager, ResultSet, Statement}
+import java.sql.Connection
+import java.sql.Statement
 
 import anilist.recsystem.Utils._
 
@@ -42,7 +44,7 @@ object ProcessData {
             case '\"' => input.length - 1
             case _    => input.length
         }
-        input.slice(start,end)
+        input.slice(start,end).replace("'","''")
     }
 
     def getDate(date: play.api.libs.json.JsValue) = {
@@ -355,9 +357,161 @@ object ProcessData {
             }
         }
     }
+
+    def getStaffId(stmt: Statement, staff: MediaStaff) = {
+        val query = s"""
+        select staffid
+        from tstaff
+        where aniliststaffid = ${staff.id}
+        """
+        val rs = stmt.executeQuery(query)
+        rs.next match {
+            case true  => rs.getInt(1)
+            case false => {
+                val insertQuery = s"""
+                insert into tstaff
+                (
+                    aniliststaffid,
+                    firstname,
+                    lastname,
+                    fullname,
+                    nativename
+                )
+                select
+                    ${staff.id},
+                    '${staff.firstName}',
+                    '${staff.lastName}',
+                    '${staff.fullName}',
+                    '${staff.nativeName}'
+                """
+                stmt.executeUpdate(insertQuery)
+                val rs0 = stmt.executeQuery(query)
+                if (rs0.next) {
+                    rs0.getInt(1)
+                } else {
+                    throw new Exception(s"something went wrong while inserting staff = $staff")
+                }
+            }
+        }
+    }
+
+    def linkAnimeStaff(stmt: Statement,animeid: Int, staff: MediaStaff) = {
+        val staffid = getStaffId(stmt,staff)
+        val linkQuery = s"""
+        insert into tstafflist 
+        (
+            staffid,
+            animeid,
+            "role"
+        )
+        select
+            $staffid,
+            $animeid,
+            '${staff.role.toUpperCase}'
+            ;"""
+        stmt.executeUpdate(linkQuery)
+    }
     
+    def unlinkAnimeStaff(stmt: Statement,animeid: Int, staff: MediaStaff) = {
+        val staffid = getStaffId(stmt,staff)
+        val linkQuery = s"""
+        delete from tstafflist 
+        where staffid = $staffid
+          and animeid = $animeid
+          and "role"  = ${staff.role.toUpperCase}
+          ;"""
+        stmt.executeUpdate(linkQuery)
+    }
+
+    def processStaff(stmt: Statement, animeid: Int, staff: Set[MediaStaff]) = {
+        val query = s"""
+        select s.aniliststaffid , s.firstname , s.lastname, s.fullname , s.nativename , sl."role" 
+          from tstafflist sl
+    inner join tstaff s
+            on s.staffid = sl.staffid 
+         where sl.animeid = $animeid
+        """
+        val rs = stmt.executeQuery(query)
+
+        val existed_staff = new Iterator[MediaStaff] {
+                    def hasNext = rs.next()
+                    def next()  = MediaStaff(rs.getInt(1),rs.getString(2),rs.getString(3),rs.getString(4),rs.getString(5),rs.getString(6))
+                }.toSet
+        (staff == existed_staff) match {
+            case true => Set(-1)
+            case false => {
+                val extra = existed_staff.diff(staff)
+                val new_staff = staff.diff(existed_staff)
+                extra.map(x => {
+                    unlinkAnimeStaff(stmt,animeid,x)
+                })
+                new_staff.map( x =>{
+                    linkAnimeStaff(stmt,animeid,x)
+                })
+            }
+        }
+    }
+
+    def linkAnimeName(stmt: Statement, animeid: Int, name: MediaName) = {
+        val nametypeid = getIdByNameType(stmt,"nametype",name.`type`)
+        val linkQuery = s"""
+        insert into tanimealtname 
+        (
+            animeid,
+            animename,
+            nametypeid
+        )
+        select
+            $animeid,
+            '${name.name}',
+            $nametypeid
+            ;"""
+        stmt.executeUpdate(linkQuery)
+    }
+
+    def unlinkAnimeName(stmt: Statement, animeid: Int, name: MediaName) = {
+        val nametypeid = getIdByNameType(stmt,"nametype",name.`type`)
+        val linkQuery = s"""
+        delete from tanimealtname 
+        where nametypeid = $nametypeid
+          and animeid = $animeid
+          and animename = ${name.name}
+          ;"""
+        stmt.executeUpdate(linkQuery)
+    }
+
+    def processNames(stmt: Statement, animeid: Int, names: Set[MediaName]) = {
+        val query = s"""
+        select nt."name" ,an.animename 
+          from tnametype nt 
+    inner join tanimealtname an
+            on nt.nametypeid = an.nametypeid 
+         where an.animeid = $animeid
+        """
+        val rs = stmt.executeQuery(query)
+
+        val existed_names = new Iterator[MediaName] {
+                    def hasNext = rs.next()
+                    def next()  = MediaName(rs.getString(1),rs.getString(2))
+                }.toSet
+
+        (names == existed_names) match {
+            case true => Set(-1)
+            case false => {
+                val extra = existed_names.diff(names)
+                val new_names = names.diff(existed_names)
+                extra.map(x => {
+                    unlinkAnimeName(stmt,animeid,x)
+                })
+                new_names.map( x =>{
+                    linkAnimeName(stmt,animeid,x)
+                })
+            }
+        }
+    }
+
     def processMediaInfo(input: String) = {
-        //val input = anilist.recsystem.CollectJsonInfo.collectMediaInfo(722)
+        //val input = anilist.recsystem.CollectJsonInfo.collectMediaInfo(1)
         //{spark; spark.conf.set("spark.conf_dir.postgres.location","/home/gazavat/git/AnimeRecService/postgres")}
         val sql_connection = getSQLConnection
         sql_connection.setAutoCommit(false)
@@ -375,8 +529,9 @@ object ProcessData {
             val englishTitle = cleanTitles(title("english").toString)
             val nativeTitle = cleanTitles(title("native").toString)
             val synonyms = media("synonyms").as[JsArray].value.map(synonym => {
-                synonym.toString
+                cleanTitles(synonym.toString)
             }).toSet
+            val names = (synonyms.map( x => ("synonyms", x)) + (("romaji",romajiTitle)) + (("english",englishTitle)) + (("native",nativeTitle))).filter(_._2 != "null").map(x => MediaName(x._1,x._2))
             val startDate = getDate(media("startDate"))
             val endDate = getDate(media("endDate"))
             val episodes = Try(media("episodes").toString.toInt).getOrElse(0)
@@ -394,7 +549,6 @@ object ProcessData {
             val source = cleanTitles(media("source").toString)
             val sourceID = getIdByNameType(stmt, "source",source)
 
-
             val status = cleanTitles(media("status").toString)
             val statusID = getIdByNameType(stmt,"status", status)
 
@@ -403,7 +557,7 @@ object ProcessData {
             }).toSet
 
             val staff = media("staff")("edges").as[JsArray].value.map(line => {
-                MediaStaff(line("node")("id").toString.toInt,line("node")("name")("first").toString,line("node")("name")("last").toString,line("node")("name")("full").toString,line("node")("name")("native").toString,line("role").toString)
+                MediaStaff(line("node")("id").toString.toInt,cleanTitles(line("node")("name")("first").toString),cleanTitles(line("node")("name")("last").toString),cleanTitles(line("node")("name")("full").toString),cleanTitles(line("node")("name")("native").toString),cleanTitles(line("role").toString.toUpperCase))
             }).toSet
 
             val anime = Anime(anilistMediaID, romajiTitle, startDate, endDate, episodes, duration, chapters, volumes, formatID, sourceID, statusID, mediaTypeId)
@@ -415,6 +569,10 @@ object ProcessData {
             processTags(stmt, animeid, tags)
 
             processStudios(stmt, animeid, studios)
+
+            processStaff(stmt,animeid,staff)
+
+            processNames(stmt,animeid, names)
 
             sql_connection.commit()
         }).getOrElse(throw new Exception(s"Error while processing ${input}"))
