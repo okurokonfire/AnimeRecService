@@ -47,6 +47,10 @@ object ProcessData {
         input.slice(start,end).replace("'","''")
     }
 
+    def unCleanTitles(input: String): String = {
+        input.replace("'","''")
+    }
+
     def getDate(date: play.api.libs.json.JsValue) = {
         val (year,month,day) = (anilist.recsystem.Utils.isnull(date("year"),1900),anilist.recsystem.Utils.isnull(date("month"),1),anilist.recsystem.Utils.isnull(date("day"),1)) 
         val newDate = Try(java.time.LocalDate.of(year,month,day)).getOrElse(java.time.LocalDate.of(1900,1,1))
@@ -59,7 +63,7 @@ object ProcessData {
         val rs = stmt.executeQuery(query)
         rs.next match {
             case true  => {
-                val (animeid, curr_anime) = (rs.getInt(1),Anime(rs.getInt(2),rs.getString(3),rs.getDate(4).toString,rs.getDate(5).toString,rs.getInt(6),rs.getInt(7),rs.getInt(8),rs.getInt(9),rs.getInt(10),rs.getInt(11),rs.getInt(12),rs.getInt(13)))
+                val (animeid, curr_anime) = (rs.getInt(1),Anime(rs.getInt(2),unCleanTitles(rs.getString(3)),rs.getDate(4).toString,rs.getDate(5).toString,rs.getInt(6),rs.getInt(7),rs.getInt(8),rs.getInt(9),rs.getInt(10),rs.getInt(11),rs.getInt(12),rs.getInt(13)))
                 (curr_anime == anime) match {
                     case true  => animeid
                     case false => {
@@ -164,7 +168,7 @@ object ProcessData {
 
         val existed_genres = new Iterator[String] {
                     def hasNext = rs.next()
-                    def next()  = rs.getString(1)
+                    def next()  = unCleanTitles(rs.getString(1))
                 }.toSet
         (genres == existed_genres) match {
             case true  => Set(-1)
@@ -255,7 +259,7 @@ object ProcessData {
 
         val existed_tags = new Iterator[MediaTag] {
                     def hasNext = rs.next()
-                    def next()  = MediaTag(rs.getInt(1),rs.getString(2),rs.getString(3))
+                    def next()  = MediaTag(rs.getInt(1),unCleanTitles(rs.getString(2)),unCleanTitles(rs.getString(3)))
                 }.toSet
         (tags == existed_tags) match {
             case true  => Set(-1)
@@ -341,7 +345,7 @@ object ProcessData {
 
         val existed_studios = new Iterator[MediaStudio] {
                     def hasNext = rs.next()
-                    def next()  = MediaStudio(rs.getInt(1),rs.getString(2),rs.getBoolean(3))
+                    def next()  = MediaStudio(rs.getInt(1),unCleanTitles(rs.getString(2)),rs.getBoolean(3))
                 }.toSet
         (existed_studios == studios) match {
             case true  => Set(-1)
@@ -435,7 +439,7 @@ object ProcessData {
 
         val existed_staff = new Iterator[MediaStaff] {
                     def hasNext = rs.next()
-                    def next()  = MediaStaff(rs.getInt(1),rs.getString(2),rs.getString(3),rs.getString(4),rs.getString(5),rs.getString(6))
+                    def next()  = MediaStaff(rs.getInt(1),unCleanTitles(rs.getString(2)),unCleanTitles(rs.getString(3)),unCleanTitles(rs.getString(4)),unCleanTitles(rs.getString(5)),unCleanTitles(rs.getString(6)))
                 }.toSet
         (staff == existed_staff) match {
             case true => Set(-1)
@@ -492,7 +496,7 @@ object ProcessData {
 
         val existed_names = new Iterator[MediaName] {
                     def hasNext = rs.next()
-                    def next()  = MediaName(rs.getString(1),rs.getString(2))
+                    def next()  = MediaName(unCleanTitles(rs.getString(1)),unCleanTitles(rs.getString(2)))
                 }.toSet
 
         (names == existed_names) match {
@@ -575,9 +579,34 @@ object ProcessData {
             processNames(stmt,animeid, names)
 
             sql_connection.commit()
-        }).getOrElse(throw new Exception(s"Error while processing ${input}"))
+        }).getOrElse({sql_connection.rollback; throw new Exception(s"Error while processing ${input}")})
         sql_connection.close()
     }
 
+    def processUserInfo(input: String) = {
+        /*
+        spark
+        spark.conf.set("spark.conf_dir.postgres.location","/home/gazavat/git/AnimeRecService/postgres")
+        val kafkaParams = Map("kafka.bootstrap.servers"->"localhost:9092", "subscribe" -> "test_user_topic","startingOffsets"->"earliest")
+        import org.apache.spark.sql.functions._
+        val input = spark.read.format("kafka").options(kafkaParams).load.select(col("value").cast("string")).collect().map(x => x.getString(0)).head
+        */
+        val sql_connection = getSQLConnection
+        sql_connection.setAutoCommit(false)
+        sql_connection.setTransactionIsolation(Connection.TRANSACTION_REPEATABLE_READ)
+        val stmt = sql_connection.createStatement()
+        Try({
+            val json: JsValue = Json.parse(input)
+            val animes = json("anime")("data")("MediaListCollection")("lists").as[JsArray].value.flatMap(x => {
+                x("entries").as[JsArray].value
+            }).toList
+            val mangas = json("manga")("data")("MediaListCollection")("lists").as[JsArray].value.flatMap(x => {
+                x("entries").as[JsArray].value
+            }).toList
+            val media = animes ::: mangas
 
+            sql_connection.commit()
+        }).getOrElse({sql_connection.rollback; throw new Exception(s"Error while processing ${input}")})
+        sql_connection.close()
+    }
 }

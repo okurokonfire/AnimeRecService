@@ -119,6 +119,7 @@ object CollectJsonInfo {
                 progress  
                 repeat  
                 media {  id  type  }  
+                status
               }  
             }  
           }  
