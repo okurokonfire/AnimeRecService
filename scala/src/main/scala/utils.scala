@@ -120,10 +120,12 @@ object Utils {
         }
     }
     
+    
     case class MediaTag (id: Int, name: String, category: String)
     case class MediaStudio (id: Int, name: String, isMain: Boolean)
     case class MediaStaff (id: Int, firstName: String, lastName: String, fullName: String, nativeName: String, role: String)
     case class Anime (animeListId: Int, title: String, dateStart: String, dateEnd: String, episodes: Int, duration: Int, chapters: Int, volumes: Int, formatID: Int, sourceID: Int, statusID: Int, mediaTypeId: Int)
     case class MediaName (`type`: String, name: String)
+    case class MediaListEntry(userId: Int, mediaId: Int, dateStart: String, dateEnd: String, score: Int, progress: Int, repeat: Int, watchStatusId: Int)
 
 }

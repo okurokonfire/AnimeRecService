@@ -196,9 +196,9 @@ CREATE TABLE public.tanimelist (
 	datestart date NULL,
 	dateend date NULL,
 	score int4 NULL,
+	progress int4 NULL,
 	rewatched int4 NULL,
 	statusid int4 NULL,
-	mediatypeid int4 NOT NULL,
 	CONSTRAINT tanimelist_pkey PRIMARY KEY (userid, animeid)
 );
 
@@ -206,7 +206,6 @@ CREATE TABLE public.tanimelist (
 ALTER TABLE public.tanimelist ADD CONSTRAINT fk_tanimelist_twatchstatus FOREIGN KEY (statusid) REFERENCES twatchstatus(watchstatusid);
 ALTER TABLE public.tanimelist ADD CONSTRAINT fk_tanimelist_tanime FOREIGN KEY (animeid) REFERENCES tanime(animeid);
 ALTER TABLE public.tanimelist ADD CONSTRAINT fk_tanimelist_tuser FOREIGN KEY (userid) REFERENCES tuser(userid);
-ALTER TABLE public.tanimelist ADD CONSTRAINT fk_tanimelist_tmediatype FOREIGN KEY (mediatypeid) REFERENCES tmediatype(mediatypeid);
 
 -- public.tgenrelist definition
 

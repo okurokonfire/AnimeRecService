@@ -23,7 +23,6 @@ class ProcessDataTest extends AnyFlatSpec with Matchers {
         val kafkaParams = Map("kafka.bootstrap.servers"->"localhost:9092", "subscribe" -> "test_topic","startingOffsets"->"earliest")
         spark.conf.set("spark.conf_dir.postgres.location","/home/gazavat/git/AnimeRecService/postgres")
         spark.read.format("kafka").options(kafkaParams).load.select(col("value").cast("string")).collect().map(x => x.getString(0)).map(x => processMediaInfo(x))
-        spark.stop
     }
 
     "process user" should "not fail" in {
@@ -34,7 +33,7 @@ class ProcessDataTest extends AnyFlatSpec with Matchers {
         processUserInfo(first)
     }
 
-    "batch process media" should "not fail" in {
+    "batch process user" should "not fail" in {
         spark
         val kafkaParams = Map("kafka.bootstrap.servers"->"localhost:9092", "subscribe" -> "test_user_topic","startingOffsets"->"earliest")
         spark.conf.set("spark.conf_dir.postgres.location","/home/gazavat/git/AnimeRecService/postgres")

@@ -514,14 +514,8 @@ object ProcessData {
         }
     }
 
-    def processMediaInfo(input: String) = {
-        //val input = anilist.recsystem.CollectJsonInfo.collectMediaInfo(1)
-        //{spark; spark.conf.set("spark.conf_dir.postgres.location","/home/gazavat/git/AnimeRecService/postgres")}
-        val sql_connection = getSQLConnection
-        sql_connection.setAutoCommit(false)
-        sql_connection.setTransactionIsolation(Connection.TRANSACTION_REPEATABLE_READ)
+    def processMediaInfo_base(sql_connection: Connection, input:String) = {
         val stmt = sql_connection.createStatement()
-        //main body
         Try({
             val json: JsValue = Json.parse(input)
             val media = json \ "data" \ "Media"
@@ -580,7 +574,104 @@ object ProcessData {
 
             sql_connection.commit()
         }).getOrElse({sql_connection.rollback; throw new Exception(s"Error while processing ${input}")})
+    }
+
+    def processMediaInfo(input: String) = {
+        //val input = anilist.recsystem.CollectJsonInfo.collectMediaInfo(1)
+        //{spark; spark.conf.set("spark.conf_dir.postgres.location","/home/gazavat/git/AnimeRecService/postgres")}
+        val sql_connection = getSQLConnection
+        sql_connection.setAutoCommit(false)
+        sql_connection.setTransactionIsolation(Connection.TRANSACTION_REPEATABLE_READ)
+        //main body
+        processMediaInfo_base(sql_connection, input)
         sql_connection.close()
+    }
+
+    def linkListEntry(stmt: Statement, entry: MediaListEntry) = {
+        val insertQuery = s"""
+            insert into tanimelist 
+            (
+                userid,
+                animeid,
+                datestart,
+                dateend,
+                score,
+                progress,
+                rewatched,
+                statusid
+            )
+            select
+                ${entry.userId},
+                ${entry.mediaId},
+                '${entry.dateStart}',
+                '${entry.dateEnd}',
+                ${entry.score},
+                ${entry.progress},
+                ${entry.repeat},
+                ${entry.watchStatusId}
+            """
+            stmt.executeUpdate(insertQuery)
+    }
+
+    def unlinkListEntry(stmt: Statement, entry: MediaListEntry) = {
+        val deleteQuery = s"""
+        delete from tanimelist
+         where animeid = ${entry.mediaId}
+           and userid  = ${entry.userId}
+        """
+        stmt.executeUpdate(deleteQuery)
+    }
+
+ 
+
+    def getUserId(stmt: Statement, anilistUserId: Int): Int = {
+        val query = s"""
+        select userid
+          from tuser
+         where anilistuserid = $anilistUserId
+        """
+        val rs = stmt.executeQuery(query)
+        rs.next match {
+            case true  => rs.getInt(1)
+            case false => {
+                val insertQuery = s"""
+                insert into tuser
+                (
+                    anilistuserid
+                )
+                select
+                    $anilistUserId
+                """
+                stmt.executeUpdate(insertQuery)
+
+                val rs0 = stmt.executeQuery(query)
+                rs0.next match {
+                    case true  => rs0.getInt(1)
+                    case false => throw new Exception(s"something went wrong while inserting user = $anilistUserId")
+                }
+            }
+        }
+    }
+
+    def getMediaId(stmt: Statement, anilistMediaId: Int): Int = {
+        val query = s"""
+        select animeid
+          from tanime
+         where anilistanimeid = $anilistMediaId
+        """
+        val rs = stmt.executeQuery(query)
+        rs.next match {
+            case true  => rs.getInt(1)
+            case false => {
+                val input = anilist.recsystem.CollectJsonInfo.collectMediaInfo(anilistMediaId)
+                processMediaInfo_base(stmt.getConnection,input)
+                val rs0 = stmt.executeQuery(query)
+                rs0.next match {
+                    case true  => rs0.getInt(1)
+                    case false => {throw new Exception(s"error while processing anime with id = $anilistMediaId inside user process")}
+                }
+            }
+        }
     }
 
     def processUserInfo(input: String) = {
@@ -604,7 +695,49 @@ object ProcessData {
                 x("entries").as[JsArray].value
             }).toList
             val media = animes ::: mangas
+            
+            val userId = getUserId(stmt,media(0)("userId").toString.toInt)
+            println(s"userid = $userId")
+            val existing_entries = {
+                val query = s"""
+                select userid, animeid, datestart, dateend, score, progress, rewatched, statusid
+                  from tanimelist
+                 where userid = ${userId}
+                  """
+                val rs = stmt.executeQuery(query)
+                new Iterator[MediaListEntry]{
+                    def hasNext = rs.next()
+                    def next()  = MediaListEntry(rs.getInt(1), rs.getInt(2), rs.getDate(3).toString, rs.getDate(4).toString, rs.getInt(5), rs.getInt(6), rs.getInt(7), rs.getInt(8))
+                }.toSet
+            }
 
+            val entries = media.map(x => { 
+                println(s"anilist mediaId = ${x("mediaId").toString.toInt}")
+                val mediaId = getMediaId(stmt,x("mediaId").toString.toInt)
+                println(mediaId)
+                val dateStart = getDate(x("startedAt")).toString
+                val dateEnd = getDate(x("completedAt")).toString
+                val score = (x("score").toString.toDouble * 10).toInt
+                val progress = x("progress").toString.toInt
+                val repeat = x("repeat").toString.toInt
+                val watchStatusId = getIdByNameType(stmt,"watchstatus", cleanTitles(x("status").toString))
+                (userId,mediaId,dateStart,dateEnd,score,progress,repeat,watchStatusId)
+            }).groupBy(_._2)
+              .mapValues(x => MediaListEntry(x(0)._1, x(0)._2, x(0)._3, x(0)._4, x(0)._5, x.map(_._6).reduce(_+_), x.map(_._7).reduce(_+_), x(0)._8))
+              .values
+              .toSet
+            
+
+            val extra = existing_entries.diff(entries)
+            val new_entries = entries.diff(existing_entries)
+
+            extra.map(x => {
+                unlinkListEntry(stmt,x)
+            })
+            new_entries.map(x => {
+                println(x)
+                linkListEntry(stmt,x)
+            })
             sql_connection.commit()
         }).getOrElse({sql_connection.rollback; throw new Exception(s"Error while processing ${input}")})
         sql_connection.close()
