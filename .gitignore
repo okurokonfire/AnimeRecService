@@ -10,8 +10,9 @@ null
 .vscode
 .bsp
 postgres.conf
-postgresql.csr
-postgresql.pk8
-postgresql.crt
-postgresql.key
-root.crt
+postgres/postgresql.csr
+postgres/postgresql.pk8
+postgres/postgresql.crt
+postgres/postgresql.key
+*/root.crt
+*/chk
