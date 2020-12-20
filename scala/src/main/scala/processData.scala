@@ -370,7 +370,32 @@ object ProcessData {
         """
         val rs = stmt.executeQuery(query)
         rs.next match {
-            case true  => rs.getInt(1)
+            case true  => {
+                val existingId = rs.getInt(1)
+                val query2 = s"""
+                select s.aniliststaffid , s.firstname , s.lastname, s.fullname , s.nativename
+                  from tstaff s
+                 where s.staffid = $existingId
+                """
+                val rs2 = stmt.executeQuery(query2)
+                rs2.next
+                val existing_staff = MediaStaff(rs2.getInt(1),rs2.getString(2),rs2.getString(3),rs2.getString(4),rs2.getString(5),staff.role.toUpperCase)
+                (existing_staff==staff) match {
+                    case true  => existingId
+                    case false => {
+                        val updateQuery = s"""
+                        update public.tstaff
+                           set firstname =  '${staff.firstName}',
+                               lastname  =  '${staff.lastName}',
+                               fullname  =  '${staff.fullName}',
+                               nativename = '${staff.nativeName}' 
+                         where staffid = $existingId
+                        """
+                        stmt.executeUpdate(updateQuery)
+                        existingId
+                    }
+                }
+            }
             case false => {
                 val insertQuery = s"""
                 insert into tstaff
@@ -422,7 +447,7 @@ object ProcessData {
         delete from tstafflist 
         where staffid = $staffid
           and animeid = $animeid
-          and "role"  = ${staff.role.toUpperCase}
+          and "role"  = '${staff.role.toUpperCase}'
           ;"""
         stmt.executeUpdate(linkQuery)
     }
@@ -479,7 +504,7 @@ object ProcessData {
         delete from tanimealtname 
         where nametypeid = $nametypeid
           and animeid = $animeid
-          and animename = ${name.name}
+          and animename = '${name.name}'
           ;"""
         stmt.executeUpdate(linkQuery)
     }
@@ -697,7 +722,7 @@ object ProcessData {
             val media = animes ::: mangas
             
             val userId = getUserId(stmt,media(0)("userId").toString.toInt)
-            println(s"userid = $userId")
+            //println(s"userid = $userId")
             val existing_entries = {
                 val query = s"""
                 select userid, animeid, datestart, dateend, score, progress, rewatched, statusid
@@ -712,9 +737,9 @@ object ProcessData {
             }
 
             val entries = media.map(x => { 
-                println(s"anilist mediaId = ${x("mediaId").toString.toInt}")
+                //println(s"anilist mediaId = ${x("mediaId").toString.toInt}")
                 val mediaId = getMediaId(stmt,x("mediaId").toString.toInt)
-                println(mediaId)
+                //println(mediaId)
                 val dateStart = getDate(x("startedAt")).toString
                 val dateEnd = getDate(x("completedAt")).toString
                 val score = (x("score").toString.toDouble * 10).toInt
@@ -735,7 +760,7 @@ object ProcessData {
                 unlinkListEntry(stmt,x)
             })
             new_entries.map(x => {
-                println(x)
+                //println(x)
                 linkListEntry(stmt,x)
             })
             sql_connection.commit()

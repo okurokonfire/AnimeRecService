@@ -119,7 +119,16 @@ object Utils {
             case _ => variable.toString.toInt
         }
     }
-    
+    def getUpdatedKafkaParams(file: String) = {
+        val kafkaParams = getKafkaParams(s"${kafka_dir_location}/$file")
+        val offsets = Try(kafkaParams("startingOffsets")).getOrElse("earliest")
+        val new_offsets = offsets match {
+            case "earliest" => "earliest"
+            case "latest"   => "latest" 
+            case x => s"""{"${kafkaParams("subscribe")}":{"0":${x}}}"""
+        }
+        kafkaParams.updated("startingOffsets",new_offsets)
+    }
     
     case class MediaTag (id: Int, name: String, category: String)
     case class MediaStudio (id: Int, name: String, isMain: Boolean)

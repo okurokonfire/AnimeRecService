@@ -15,4 +15,4 @@ postgres/postgresql.pk8
 postgres/postgresql.crt
 postgres/postgresql.key
 */root.crt
-*/chk
+chk
