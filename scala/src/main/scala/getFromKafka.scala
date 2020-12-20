@@ -29,7 +29,8 @@ object getFromKafka {
         val startedStream = streamingDF.start
         startedStream.awaitTermination()
     }
-    def getFromKafkaMediaInfo() = {
+
+    def getFromKafkaMediaInfo():Unit = {
         val kafkaParams = getUpdatedKafkaParams("kafka_params_get_media.conf")
         val sdf = spark.readStream.format("kafka").options(kafkaParams).load.select(col("value").cast("string"))
 
@@ -46,6 +47,7 @@ object getFromKafka {
         val startedStream = streamingDF.start
         startedStream.awaitTermination()
     }
+
     def main(args: Array[String]): Unit = {
         val mode = Try(args(0)).getOrElse(throw new Exception("you should declare mode"))
         mode match {

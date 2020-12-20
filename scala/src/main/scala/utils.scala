@@ -136,5 +136,6 @@ object Utils {
     case class Anime (animeListId: Int, title: String, dateStart: String, dateEnd: String, episodes: Int, duration: Int, chapters: Int, volumes: Int, formatID: Int, sourceID: Int, statusID: Int, mediaTypeId: Int)
     case class MediaName (`type`: String, name: String)
     case class MediaListEntry(userId: Int, mediaId: Int, dateStart: String, dateEnd: String, score: Int, progress: Int, repeat: Int, watchStatusId: Int)
+    case class MediaRecommendations(userId: Int,anilistUserId: Int,animeId: Int,anilistAnimeId: Int, animeName: String ,score: Int)
 
 }
