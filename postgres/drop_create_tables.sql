@@ -12,6 +12,8 @@ DROP TABLE public.tanimelist;
 
 DROP TABLE public.tanimealtname;
 
+DROP TABLE public.tanimerecs;
+
 DROP TABLE public.tanime;
 
 DROP TABLE public.tformat;
@@ -39,9 +41,10 @@ DROP TABLE public.tmediatype;
 DROP TABLE public.counters;
 
 CREATE TABLE public.counters (
-	counterid int4 NOT NULL,
+	counterid serial NOT NULL,
 	countername varchar(255) NULL,
-	value int4 NULL,
+	value_int int4 NULL,
+	value_str varchar(255) NULL,
 	CONSTRAINT tcounters_pkey PRIMARY KEY (counterid)
 );
 
@@ -172,6 +175,19 @@ ALTER TABLE public.tanime ADD CONSTRAINT fk_tanime_tformat FOREIGN KEY (formatid
 ALTER TABLE public.tanime ADD CONSTRAINT fk_tanime_tsource FOREIGN KEY (sourceid) REFERENCES tsource(sourceid);
 ALTER TABLE public.tanime ADD CONSTRAINT fk_tanime_tstatus FOREIGN KEY (statusid) REFERENCES tstatus(statusid);
 ALTER TABLE public.tanime ADD CONSTRAINT fk_tanime_tmediatype FOREIGN KEY (mediatypeid) REFERENCES tmediatype(mediatypeid);
+
+-- public.tanime definition 
+CREATE TABLE public.tanimerecs (
+	userid INT NOT NULL,
+	animeid INT NOT NULL,
+	score INT NOT NULL,
+	CONSTRAINT tanimerecs_pkey PRIMARY KEY (userid,animeid)
+);
+
+-- public.tanime foreign keys
+
+ALTER TABLE public.tanimerecs ADD CONSTRAINT fk_tanimerecs_tanime FOREIGN KEY (animeid) REFERENCES tanime(animeid);
+ALTER TABLE public.tanimerecs ADD CONSTRAINT fk_tanimerecs_tuser FOREIGN KEY (userid) REFERENCES tuser(userid);
 
 -- public.tanimealtname definition
 

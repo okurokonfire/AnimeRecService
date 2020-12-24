@@ -13,18 +13,32 @@ object getFromKafka {
 
 
     def getFromKafkaUserInfo() = {
-        //val kafkaParams = getUpdatedKafkaParams("kafka_params_get_user.conf")
-        ???
+        val kafkaParams = getUpdatedKafkaParams("kafka_params_get_user.conf")
+        val sdf = spark.readStream.format("kafka").options(kafkaParams).load.select(col("value").cast("string"))
+
+        val streamingDF = createSink("getUser", sdf) {
+             (df, id) => 
+            //println(df.count)
+            //df.show(false)
+            //println(s"This is batch $id")
+
+            val entries = df.collect().map(x => x.getString(0))
+            entries.map(x => anilist.recsystem.ProcessData.processUserInfo(x))
+            
+        }
+        val startedStream = streamingDF.start
+        startedStream.awaitTermination()
     }
-    def getFromKafkaMediaInfo() = {
+
+    def getFromKafkaMediaInfo():Unit = {
         val kafkaParams = getUpdatedKafkaParams("kafka_params_get_media.conf")
         val sdf = spark.readStream.format("kafka").options(kafkaParams).load.select(col("value").cast("string"))
 
         val streamingDF = createSink("getMedia", sdf) {
              (df, id) => 
-            println(df.count)
-            df.show(false)
-            println(s"This is batch $id")
+            //println(df.count)
+            //df.show(false)
+            //println(s"This is batch $id")
 
             val entries = df.collect().map(x => x.getString(0))
             entries.map(x => anilist.recsystem.ProcessData.processMediaInfo(x))
@@ -33,6 +47,7 @@ object getFromKafka {
         val startedStream = streamingDF.start
         startedStream.awaitTermination()
     }
+
     def main(args: Array[String]): Unit = {
         val mode = Try(args(0)).getOrElse(throw new Exception("you should declare mode"))
         mode match {

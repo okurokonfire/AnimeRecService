@@ -136,5 +136,28 @@ object Utils {
     case class Anime (animeListId: Int, title: String, dateStart: String, dateEnd: String, episodes: Int, duration: Int, chapters: Int, volumes: Int, formatID: Int, sourceID: Int, statusID: Int, mediaTypeId: Int)
     case class MediaName (`type`: String, name: String)
     case class MediaListEntry(userId: Int, mediaId: Int, dateStart: String, dateEnd: String, score: Int, progress: Int, repeat: Int, watchStatusId: Int)
+    case class MediaRecommendations(userId: Int,anilistUserId: Int,animeId: Int,anilistAnimeId: Int, animeName: String ,score: Int)
 
+    def getConfigFromPostgre(conf: String, mode: String, default: String) = {
+        val connection = getSQLConnection()
+        val stmt = connection.createStatement()
+        val value = mode match {
+            case "int" => "value_int"
+            case "str" => "value_str"
+            case _     => throw new Error("unsupported type for getting config")
+        }
+        val query = s"""
+        select $value
+          from counters
+         where countername = '$conf'
+           and $value is not null
+        """
+        val rs = stmt.executeQuery(query)
+        val res = rs.next match {
+            case false => default
+            case true  => rs.getString(1)
+        }
+        connection.close
+        res
+    }
 }
