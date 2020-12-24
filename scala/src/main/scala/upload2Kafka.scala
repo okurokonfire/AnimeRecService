@@ -12,10 +12,11 @@ object Upload2Kafka {
         //
         spark.conf.set("spark.mediaProcess.reachedEnd",false)
         val kafkaParams = getKafkaParams(s"${kafka_dir_location}/kafka_params_upload_media.conf")
-        val max_id = readFile(s"${kafka_dir_location}/boundaries.conf").split("\n").map(x => {
-                val arr = x.split("\\s+")
-                arr(0) -> arr(1).toInt
-            }).toMap.getOrElse("media",1000)
+        val max_id = getConfigFromPostgre("media","int","5").toInt
+        // readFile(s"${kafka_dir_location}/boundaries.conf").split("\n").map(x => {
+        //         val arr = x.split("\\s+")
+        //         arr(0) -> arr(1).toInt
+        //     }).toMap.getOrElse("media",1000)
         val udfGetMediaInfo = udf { (value: Int) => anilist.recsystem.CollectJsonInfo.collectMediaInfo(value) }
         val streamInfo = {
             spark.readStream
@@ -33,6 +34,7 @@ object Upload2Kafka {
         //spark.read.format("kafka").options(Map("kafka.bootstrap.servers" -> "localhost:9092","subscribe" ->"test_topic","startingOffsets" -> "earliest")).load
         val streamingDF = createSink("media", streamInfo) {
              (df, id) => 
+             spark.conf.set("spark.mediaProcess.entered",true)
             //println(df.count)
             //df.show(false)
             //println(s"This is batch $id")
@@ -48,7 +50,7 @@ object Upload2Kafka {
             val max_curr_id = df.select("id").agg(coalesce(max("id"),lit(0)).as("id")).collect().map(x => x.getInt(0))
 
             val curr_id = Try(max_curr_id(0)).getOrElse(0)
-
+            println(s"curr_id: $curr_id, max: $max_id")
             if (max_id <= curr_id) {spark.conf.set("spark.mediaProcess.reachedEnd",true)}
 
         }
@@ -70,10 +72,11 @@ object Upload2Kafka {
         //
         spark.conf.set("spark.userProcess.reachedEnd",false)
         val kafkaParams = getKafkaParams(s"${kafka_dir_location}/kafka_params_upload_user.conf")
-        val max_id = readFile(s"${kafka_dir_location}/boundaries.conf").split("\n").map(x => {
-                val arr = x.split("\\s+")
-                arr(0) -> arr(1).toInt
-            }).toMap.getOrElse("user",1000)
+        val max_id = getConfigFromPostgre("user","int","5").toInt
+        // readFile(s"${kafka_dir_location}/boundaries.conf").split("\n").map(x => {
+        //         val arr = x.split("\\s+")
+        //         arr(0) -> arr(1).toInt
+        //     }).toMap.getOrElse("user",1000)
         val udfGetUserAnimeInfo = udf { (value: Int) => anilist.recsystem.CollectJsonInfo.collectUserInfo(value,"ANIME") }
         val udfGetUserMangaInfo = udf { (value: Int) => anilist.recsystem.CollectJsonInfo.collectUserInfo(value,"MANGA") }
         val streamInfo = {

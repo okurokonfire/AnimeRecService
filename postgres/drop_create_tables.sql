@@ -41,9 +41,10 @@ DROP TABLE public.tmediatype;
 DROP TABLE public.counters;
 
 CREATE TABLE public.counters (
-	counterid int4 NOT NULL,
+	counterid serial NOT NULL,
 	countername varchar(255) NULL,
-	value int4 NULL,
+	value_int int4 NULL,
+	value_str varchar(255) NULL,
 	CONSTRAINT tcounters_pkey PRIMARY KEY (counterid)
 );
 
