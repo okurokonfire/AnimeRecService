@@ -27,6 +27,7 @@ object Upload2Kafka {
                  .load()
                  .withColumn("data",when(col("value")%lit(10)===0,udfGetMediaInfo((col("value")/lit(10)).cast("int")))
                                    .otherwise("""{"errors":"""))
+                //to artificially slow stream so i won't be banned by server
                  .withColumn("id",(col("value")/lit(10)).cast("int"))
                  .select("id","data")
             }
@@ -51,21 +52,25 @@ object Upload2Kafka {
 
             val curr_id = Try(max_curr_id(0)).getOrElse(0)
             println(s"curr_id: $curr_id, max: $max_id")
-            if (max_id <= curr_id) {spark.conf.set("spark.mediaProcess.reachedEnd",true)}
-
-        }
-        val startedStream = streamingDF.start
-        //startedStream.awaitTermination
-        while(startedStream.isActive) {
-            if (spark.conf.get("spark.mediaProcess.reachedEnd").toBoolean) {
-                startedStream.stop()
+            if (max_id <= curr_id) {
+                spark.streams.active.filter(_.name == "media").apply(0).stop
                 val directory = new scala.reflect.io.Directory(new java.io.File("chk/media"))
                 directory.deleteRecursively()
-            } else {
-            // wait 10 seconds before checking again if work is complete
-                startedStream.awaitTermination(10000)
             }
+
         }
+        val startedStream = streamingDF.queryName("media").start
+        startedStream.awaitTermination
+        // while(startedStream.isActive) {
+        //     if (spark.conf.get("spark.mediaProcess.reachedEnd").toBoolean) {
+        //         startedStream.stop()
+        //         val directory = new scala.reflect.io.Directory(new java.io.File("chk/media"))
+        //         directory.deleteRecursively()
+        //     } else {
+        //     // wait 10 seconds before checking again if work is complete
+        //         startedStream.awaitTermination(10000)
+        //     }
+        // }
     }
 
     def upload2KafkaUserInfo() = {
@@ -90,6 +95,7 @@ object Upload2Kafka {
                                    .otherwise("""{"errors":"""))
                  .withColumn("manga",when(col("value")%lit(10)===0,udfGetUserMangaInfo((col("value")/lit(10)).cast("int")))
                                    .otherwise("""{"errors":"""))
+                //to artificially slow stream so i won't be banned by server
                  .withColumn("id",(col("value")/lit(10)).cast("int"))
                  .select("id","anime","manga")
             }
@@ -113,22 +119,26 @@ object Upload2Kafka {
             val max_curr_id = df.select("id").agg(coalesce(max("id"),lit(0)).as("id")).collect().map(x => x.getInt(0))
 
             val curr_id = Try(max_curr_id(0)).getOrElse(0)
-
-            if (max_id <= curr_id) {spark.conf.set("spark.userProcess.reachedEnd",true)}
-
-        }
-        val startedStream = streamingDF.start
-        //startedStream.awaitTermination
-        while(startedStream.isActive) {
-            if (spark.conf.get("spark.userProcess.reachedEnd").toBoolean) {
-                startedStream.stop()
+            println(s"curr_id: $curr_id, max: $max_id")
+            if (max_id <= curr_id) {
+                spark.streams.active.filter(_.name == "user").apply(0).stop
                 val directory = new scala.reflect.io.Directory(new java.io.File("chk/user"))
                 directory.deleteRecursively()
-            } else {
-            // wait 10 seconds before checking again if work is complete
-                startedStream.awaitTermination(10000)
             }
+
         }
+        val startedStream = streamingDF.queryName("user").start
+        startedStream.awaitTermination
+        // while(startedStream.isActive) {
+        //     if (spark.conf.get("spark.userProcess.reachedEnd").toBoolean) {
+        //         startedStream.stop()
+        //         val directory = new scala.reflect.io.Directory(new java.io.File("chk/user"))
+        //         directory.deleteRecursively()
+        //     } else {
+        //     // wait 10 seconds before checking again if work is complete
+        //         startedStream.awaitTermination(10000)
+        //     }
+        // }
     }
 
     def main(args: Array[String]): Unit = {
